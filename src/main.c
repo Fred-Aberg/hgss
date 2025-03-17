@@ -101,17 +101,21 @@ container_t *tool_box_container;
 
 container_t *river_container;
 container_t *cut_woods_container;
+container_t *plot_region_container;
 
 #define CELL_INFO_BUF_LEN 256
 container_t *cell_info_text;
 cell_t *selected_cell = NULL;
 char cell_info_buf[CELL_INFO_BUF_LEN];
 
-void cell_to_str(cell_t *c, ushort_t x, ushort_t y)
+void cell_to_str(map_t *map, cell_t *c, ushort_t x, ushort_t y)
 {
 	char env_buf[32];
 	map_env_to_str(env_buf, c->env);
-	sprintf(cell_info_buf, "[%u, %u]: %s\n  Pop: %u\n  Region ID: %u", x, y, env_buf, c->pop_lvl, c->region_id);
+	sprintf(cell_info_buf, "[%u, %u]: %s\n  Pop: %u\n  F:%u P:%u\n  Region ID: %u\n    Pop: %u\n    F:%d P:%d G:%d\n    No. Cells: %u", 
+	x, y, env_buf, c->pop_lvl, c->baked_food_yield, c->baked_production_yield, 
+	c->region_id, map_get_region_pop(map, c->region_id), map->regions[c->region_id].baked_food_yield, map->regions[c->region_id].baked_production_yield,
+	map->regions[c->region_id].baked_gold_yield, map->regions[c->region_id].cell_count);
 }
 
 
@@ -122,12 +126,13 @@ void main_ui()
 	container_style_t s_2 = style(1, col8bt(2,0,1), col8bt(2,0,1), col8bt(7,0,3), '-', '|', 'O');
 	container_style_t s_3 = style(1, col8bt(2,1,1), col8bt(2,1,1), col8bt(7,1,3), '=', '|', '=');
 	top_container = ascui_container(true, PERCENTAGE, 100, VERTICAL, 2,
-		 ascui_box(true, PERCENTAGE, 30, HORIZONTAL, s_0, 2, 
+		 ascui_box(true, TILES, 20, HORIZONTAL, s_0, 2, 
 			ascui_button(true, TILES, 3, strlen("Env. Tool Box >"), "Env. Tool Box >", s_1, dropdown_button, &tool_box_container, NULL),
-			tool_box_container = ascui_container(true, TILES, 1, HORIZONTAL, 11, 
+			tool_box_container = ascui_container(true, TILES, 1, HORIZONTAL, 12, 
 				river_container = ascui_button(true, TILES, 3, strlen("River gen"), "River gen", s_2, NULL, NULL, NULL),
 				ascui_button(true, TILES, 3, strlen("Plant Woods"), "Plant Woods", s_2, env_tool_button, NULL, (void *)WOODLANDS),
 				cut_woods_container = ascui_button(true, TILES, 3, strlen("Cut Woods"), "Cut Woods", s_2, NULL, NULL, NULL),
+				plot_region_container = ascui_button(true, TILES, 3, strlen("Plot Region"), "Plot Region", s_2, NULL, NULL, NULL),
 				ascui_button(true, TILES, 3, strlen("Sea"), "Sea", s_1, env_tool_button, NULL, (void *)WATER),
 				ascui_button(true, TILES, 3, strlen("River"), "River", s_1, env_tool_button, NULL, (void *)RIVER),
 				ascui_button(true, TILES, 3, strlen("Beach"), "Beach", s_1, env_tool_button, NULL, (void *)BEACH),
@@ -143,10 +148,12 @@ void main_ui()
 				ascui_box(true, PERCENTAGE, 50, VERTICAL, s_3, 1, 
 					cell_info_text = ascui_text(true, TILES, 1, 0, NULL, s_3)
 				),
-				ascui_box(true, TILES, 1, HORIZONTAL, s_3, 3, 
+				ascui_box(true, TILES, 1, HORIZONTAL, s_3, 5, 
 					ascui_button(true, TILES, 3, strlen("Default"), "Default", s_3, map_vis_button, NULL, (void *)DEFAULT),
+					ascui_button(true, TILES, 3, strlen("Terrain"), "Terrain", s_3, map_vis_button, NULL, (void *)TERRAIN),
 					ascui_button(true, TILES, 3, strlen("Population"), "Population", s_3, map_vis_button, NULL, (void *)POPULATION),
-					ascui_button(true, TILES, 3, strlen("Heightmap"), "Heightmap", s_3, map_vis_button, NULL, (void *)HEIGHTMAP)
+					ascui_button(true, TILES, 3, strlen("Heightmap"), "Heightmap", s_3, map_vis_button, NULL, (void *)HEIGHTMAP),
+					ascui_button(true, TILES, 3, strlen("Regions"), "Regions", s_3, map_vis_button, NULL, (void *)REGIONS)
 				)
 			),
 			subgrid_container = ascui_subgrid(true, TILES, 1, NULL)
@@ -223,13 +230,24 @@ int main(){
 	ascui_get_text_data(cell_info_text)->text = &cell_info_buf[0];
 	ascui_get_text_data(cell_info_text)->text_len = CELL_INFO_BUF_LEN;
 
-	// map_t *map = mapgen_gen_from_heightmap("Resources/Heightmaps/aaland.png", 13, 0);
-	map_t *map = mapgen_gen_continent(400, 255, 80, 4380343);
+	// map_t *map = map_create_map(500,500);
+	// map->mapg_data.seed = 0;
+	// map->mapg_data.sea_level = 127;
+	// mapgen_assign_heightmap(map, 10, 10);
+	
+	map_t *map = mapgen_gen_from_heightmap(LoadImage("Resources/Heightmaps/aaland.png"), 15, 0);
+	mapgen_place_rivers(map);
+	mapgen_place_rivers(map);
+	mapgen_place_rivers(map);
+	mapgen_clear_region_ids(map);
+	mapgen_place_regions(map, 255, 100, 40);
+	
+	mapgen_populate_map(map, 0.20f, 0.75f, 20.0f);
+	// map_t *map = mapgen_gen_continent(400, 255, 80, 4380343);
 
-	Image hmap_img = ImageCopy(map->heightmap);
+	Image hmap_img = ImageCopy(map->mapg_data.heightmap);
 	Texture2D hmap_tex = LoadTextureFromImage(hmap_img);
 	
-	// map_t *map = map_create_map(255,255);
 	Pos_t map_view_camera = pos(map->width/2,map->height/2);
 	Pos_t map_view_composite;
 	
@@ -347,16 +365,26 @@ int main(){
 			}
 			// Map drawing
 			map_drawing_time = -GetTime();
-			map_draw_map_onto_grid(subgrid, map, map_view_composite, 2, map_vis);
+			map_draw_map_onto_grid(subgrid, map, map_view_composite, 2, map_vis, selected_cell);
 			map_drawing_time += GetTime();
 
 			// Painting
 			mouse_map_pos = map_grid_pos_to_map_pos(subgrid, map, mouse_subgrid_pos, map_view_camera);
-			if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+			if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 			{
+				if(selected_cell != NULL)
+				{
+					selected_cell = NULL;
+					cell_info_buf[0] = 0;
+				}
 				if(cursor.selected_container == river_container)
-					mapgen_plot_river(map, map->heightmap, mouse_map_pos.x, mouse_map_pos.y);
-				else if(cursor.selected_container == cut_woods_container)
+					mapgen_plot_river(map, mouse_map_pos.x, mouse_map_pos.y);
+				else if(cursor.selected_container == plot_region_container)
+					mapgen_plot_region(map, mouse_map_pos.x, mouse_map_pos.y, map->region_count + 1, 255);
+			}
+			else if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+			{
+				if(cursor.selected_container == cut_woods_container)
 					unwoodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
 				else if(selected_env == WOODLANDS)
 					woodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
@@ -368,7 +396,7 @@ int main(){
 				if(selected_env == NONE) // one click to disable painting, second to select cell
 				{
 					selected_cell = map_get_cell(map, mouse_map_pos.x, mouse_map_pos.y);
-					cell_to_str(selected_cell, mouse_map_pos.x, mouse_map_pos.y);
+					cell_to_str(map, selected_cell, mouse_map_pos.x, mouse_map_pos.y);
 				}
 				else 
 				{
@@ -385,20 +413,16 @@ int main(){
 		else
 		{
 			map_drawing_time = -GetTime();
-			map_draw_map_onto_grid(subgrid, map, map_view_camera, 2, map_vis);
+			map_draw_map_onto_grid(subgrid, map, map_view_camera, 2, map_vis, selected_cell);
 			map_drawing_time += GetTime();
 			tl_plot_smbl_w_bg(main_grid, mouse_grid_pos.x, mouse_grid_pos.y, 'A', WHITE8B, BLACK8B, 0);
 		}
 
-		// uchar_t i = 0;
-		// for(uchar_t y = 0; y < 16; y++)
-		// {
-			// for(uchar_t x = 0; x < 16; x++)
-			// {
-				// tl_plot_bg(subgrid, x, y, i);
-				// i++;
-			// }
-		// }
+		/// HGSS SIMULATION ///
+
+		map_rebake_yields(map);
+
+		//-------------------
 		
 		tl_rendering_time = -GetTime();
 		Pos_t main_grid_dcalls = tl_render_grid(main_grid);

@@ -61,7 +61,9 @@ typedef enum
 {
 	DEFAULT,
 	POPULATION,
-	HEIGHTMAP
+	HEIGHTMAP,
+	REGIONS,
+	TERRAIN
 }map_visualisation_e;
 
 typedef struct
@@ -124,6 +126,7 @@ typedef struct
 }status_t;
 
 #define MAX_STATUSES 16
+#define MAX_REGION_CELL_CAP 255
 typedef struct
 {
 	uchar_t cell_count;  	// -> max 255 cells for each region
@@ -138,6 +141,14 @@ typedef struct
 
 typedef struct
 {
+	uchar_t sea_level;
+	long seed;
+	Image heightmap;
+	Image climate_map;
+}mapgen_data_t;
+
+typedef struct
+{
 	uint_t width;
 	uint_t height;
 	cell_t *cells;
@@ -145,11 +156,15 @@ typedef struct
 	ushort_t region_count;
 	ushort_t region_capacity;
 	region_t *regions; // sort by the address of the first cell? middle cell?
-	Image heightmap;
-	structure_t structures[255];
+	mapgen_data_t mapg_data;
+	structure_t structures[256];
 }map_t;
 
 void map_env_to_str(char *buf, environment_e env);
+
+Pos_t map_cell_id_to_xy(map_t *map, ulong_t i);
+
+void map_print_region(map_t *map, ushort_t region_id);
 
 map_t *map_create_map(uint_t width, uint_t height);
 
@@ -157,27 +172,36 @@ cell_t *map_get_cell(map_t *map, ushort_t x, ushort_t y);
 
 cell_graphics_t map_calc_cell_graphics(cell_t cell);
 
-// region_t *map_add_region(map_t *map, ulong_t *cell_ids);
+region_t *map_add_region(map_t *map, ulong_t *cell_ids, uchar_t cell_count);
+
+void map_sync_region_ids(map_t *map);
+
+void map_remove_region(map_t *map, ushort_t region_id, bool sync_region_ids);
 // 
-// void map_remove_region(map_t *map, ushort_t region_id);
-// 
-// void map_rebake_region_yields(map_t *map, ushort_t region_id);
+void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, ushort_t region_id);
 // 
 // void map_rebake_regions(map_t *map, ushort_t *region_id );
 // 
-// void map_rebake_cell_yields(map_t *map, ulong_t cell_id);
+
+void map_rebake_cell_yields(cell_t *cell_array, ulong_t cell_id);
 // 
-// void map_rebake_cell_yields_propagate(map_t *map);
+void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, ulong_t cell_id);
 // 
-// void map_add_cell_to_region(ushort_t region_id, ulong_t cell_id);
+void map_rebake_yields(map_t *map);
+
+void map_add_cell_to_region(map_t *map, ushort_t region_id, ulong_t cell_id);
 // 
-// void map_add_cells_to_region(ushort_t region_id, ulong_t *cell_ids);
-// 
+void map_add_cells_to_region(map_t *map, ushort_t region_id, ulong_t *cell_ids, uchar_t cell_count);
+
+bool map_merge_region_a_with_b(map_t *map, ushort_t region_id_a, ushort_t region_id_b, bool sync_region_ids);
+
 // void map_remove_cell_from_region(ushort_t region_id, ulong_t cell_id);
 // 
 // void map_remove_cells_from_region(ushort_t region_id, ulong_t *cell_ids);
 
-void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t camera_position, char map_font, map_visualisation_e vis);
+ushort_t map_get_region_pop(map_t *map, ushort_t region_id);
+
+void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char map_font, map_visualisation_e vis, cell_t *selected_cell);
 
 Pos_t map_map_pos_to_grid_pos(map_t *map, Pos_t grid_pos, Pos_t camera_position);
 

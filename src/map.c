@@ -3,8 +3,11 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 #include "map.h"
 #include "c_codebase/src/common.h"
+
+#define SYMBOL_CULL_P_W 8
 
 // Om buf e liten så kys
 void map_env_to_str(char *buf, environment_e env)
@@ -59,6 +62,50 @@ void map_env_to_str(char *buf, environment_e env)
 	}
 }
 
+// pos(food, prod)
+Pos_t map_env_base_yields(environment_e env)
+{
+	switch (env)
+	{
+		case WATER:
+			return pos(0, 0);
+		case RIVER:
+			return pos(8, 2);
+		case MARSH:
+			return pos(2, 2);
+		case FLOODPLAINS:
+			return pos(16, 4);
+		case BEACH:
+			return pos(8, 2);
+		case URBAN:
+			return pos(0, 20);
+		case RUINS:
+			return pos(2, 2);
+		case GRASSLAND:
+			return pos(12, 4);
+		case WOODLANDS:
+			return pos(6, 8);
+		case HILLS:
+			return pos(4, 10);
+		case WOODLAND_HILLS:
+			return pos(2, 8);
+		case HIGHLANDS:
+			return pos(2, 4);
+		case HIGHLANDS_WOODS:
+			return pos(0, 6);
+		case MOUNTAINS:
+			return pos(0, 1);
+		default:
+			return pos(0, 0);
+	}
+}
+
+Pos_t map_cell_id_to_xy(map_t *map, ulong_t i)
+{
+	ushort_t y = i / map->width;
+	return pos(i - y * map->width, y);
+}
+
 cell_t *map_get_cell(map_t *map, ushort_t x, ushort_t y)
 {
 	if(x >= map->width && y >= map->height)
@@ -70,30 +117,30 @@ cell_t *map_get_cell(map_t *map, ushort_t x, ushort_t y)
     return &map->cells[x + y * map->width];
 }
 
+void map_print_region(map_t *map, ushort_t region_id)
+{
+	printf("\n\nR[%u] c: %u/%u", region_id, map->regions[region_id].cell_count, map->regions[region_id].cell_capacity);
+	for (ushort_t i = 0; i < map->regions[region_id].cell_count; i++)
+	{
+		cell_t c = map->cells[map->regions[region_id].cell_ids[i]];
+		Pos_t c_pos = map_cell_id_to_xy(map, map->regions[region_id].cell_ids[i]);
+		printf("\n\tr[%u], id[%lu], (%u, %u)", c.region_id, map->regions[region_id].cell_ids[i], c_pos.x, c_pos.y);
+	}
+}
+
 map_t *map_create_map(uint_t width, uint_t height)
 {
 	map_t *map = calloc(1, sizeof(map_t));
 	map->width = width;
 	map->height = height;
 	map->cells = calloc(width*height, sizeof(cell_t));
-	map->region_count = 0;
+	map->region_count = 1;
 	map->region_capacity = 10;
 	map->regions = calloc(10, sizeof(region_t));
 
-	// environment_e envs[] = {WATER, RIVER, MARSH,FLOODPLAINS,URBAN,RUINS,GRASSLAND,WOODLANDS,HILLS,WOODLAND_HILLS,HIGHLANDS,HIGHLANDS_WOODS,MOUNTAINS};
-	// for (uint_t y = 0; y < width; y++)
-		// for (uint_t x = 0; x < height; x++)
-		// {
-			// if(x * y == 0 || x == width - 1 || y == height - 1)
-				// map_get_cell(map, x, y)->env = WATER;
-			// else
-				// map_get_cell(map, x, y)->env = envs[GetRandomValue(0, 13)];
-				// 
-		// }
-
 	return map;
 }
-/*
+
 int comp_cells_qs(const void *id_a, const void *id_b)
 {
 	return (int)(*(signed long long *)id_a - *(signed long long *)id_b);
@@ -107,55 +154,226 @@ llong_t comp_cells(ulong_t a, ulong_t b)
 #define REALLOC_PERCENTAGE_INCREASE 1.5f
 region_t *map_add_region(map_t *map, ulong_t *cell_ids, uchar_t cell_count)
 {
-	assert(cell_count != 0);
+	// if(cell_count == 0)
+		// return NULL;
+	
 	if (map->region_capacity <= map->region_count)
 	{
-		map->region_capacity *= REALLOC_PERCENTAGE_INCREASE + 1; 
+		map->region_capacity = map->region_capacity * REALLOC_PERCENTAGE_INCREASE + 1; 
 		map->regions = (region_t *)realloc(map->regions, (map->region_capacity * sizeof(region_t)));
 	}
 	
-	region_t *region = calloc(1, sizeof(region_t));
-	region->cell_count = cell_count;
-	region->cell_capacity = cell_count;
-	region->cell_ids = calloc(cell_count, sizeof(ulong_t));
-	memcpy(region->cell_ids, cell_ids, cell_count * sizeof(ulong_t));
-	qsort(region->cell_ids, cell_count, sizeof(ulong_t), comp_cells_qs);
-	
-	ulong_t first_id = region->cell_ids[0];
-
-	
-	llong_t comparison;
-	for (ushort_t i = 0; i < map->region_count; i++)
+	region_t region;
+	region.cell_count = cell_count;
+	region.cell_capacity = cell_count;
+	if(cell_count != 0)
 	{
-		comparison = comp_cells(first_id, map->regions[i].cell_ids[0]);
-		if(comparison > 0)
-		{
-			// Move all tags from and including i one step forward
-			memmove(&map->regions[i + 1], &map->regions[i], (map->region_count - i) * sizeof(Container_tag_t));
-			
-			list->tags[i].container = container;
-			strcpy(list->tags[i].tag, tag);
-			break;
-		}
+		region.cell_ids = calloc(cell_count, sizeof(ulong_t));
+		memcpy(region.cell_ids, cell_ids, cell_count * sizeof(ulong_t));
+		qsort(region.cell_ids, cell_count, sizeof(ulong_t), comp_cells_qs);
+		
+		// ulong_t first_id = region.cell_ids[0];
+		// 
+		// llong_t comparison;
+		// for (ushort_t i = 0; i < map->region_count; i++)
+		// {
+			// comparison = comp_cells(first_id, map->regions[i].cell_ids[0]);
+			// if(comparison > 0)
+			// {
+				// // Move all regions from and including i one step forward
+				// memmove(&map->regions[i + 1], &map->regions[i], (map->region_count - i) * sizeof(region_t));
+				// 
+				// map->regions[i] = region;
+				// map->region_count++;
+				// return &map->regions[i];
+			// }
+		// }
 	}
-	list->count++;
+
+	// Add emoty region -> append
+	map->regions[map->region_count] = region;
+	map->region_count++;
+	return &map->regions[map->region_count - 1];
 }
 
-void map_remove_region(map_t *map, ushort_t region_id);
+void map_sync_region_ids(map_t *map)
+{
+	for (ushort_t i = 0; i < map->region_count; i++)
+		for (ushort_t j = 0; j < map->regions[i].cell_count; j++)
+		{
+			map->cells[map->regions[i].cell_ids[j]].region_id = i;
+		}
+}
 
-void map_rebake_cell_yields(ulong_t cell_id);
+void map_remove_region(map_t *map, ushort_t region_id, bool sync_region_ids)
+{
+	free(map->regions[region_id].cell_ids);
+	memmove(&map->regions[region_id], &map->regions[region_id + 1], (map->region_count - region_id) * sizeof(region_t));
+	map->region_count--;
 
-void map_add_cell_to_region(ushort_t region_id, ulong_t cell_id);
+	if(sync_region_ids)
+		map_sync_region_ids(map);
+}
 
-void map_add_cells_to_region(ushort_t region_id, ulong_t *cell_ids);
+void map_rebake_cell_yields(cell_t *cell_array, ulong_t cell_id)
+{
+	ushort_t pop_multiplier = (cell_array[cell_id].pop_lvl>>2);
+	
+	Pos_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
+	cell_array[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
+	cell_array[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
+}
+
+void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, ulong_t cell_id)
+{
+	float pop_multiplier = 1.0f + (cell_array[cell_id].pop_lvl / 255.0f);
+	
+	Pos_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
+	cell_array[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
+	cell_array[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
+	
+
+	// TODO: Subtract consumption
+	region_array[cell_array[cell_id].region_id].baked_food_yield += base_env_yields.x * pop_multiplier;
+	region_array[cell_array[cell_id].region_id].baked_production_yield += base_env_yields.y * pop_multiplier;
+	region_array[cell_array[cell_id].region_id].baked_gold_yield += 20 * pop_multiplier;
+}
+
+void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, ushort_t region_id)
+{
+	region_array[region_id].baked_food_yield = 0;
+	region_array[region_id].baked_production_yield = 0;
+	region_array[region_id].baked_gold_yield = 0;
+
+	ulong_t *cell_ids = region_array[region_id].cell_ids;
+	cell_t c;
+
+	for(uchar_t i = 0; i < region_array[region_id].cell_count; i++)
+	{
+		c = cell_array[cell_ids[i]];
+		
+		region_array[region_id].baked_food_yield += (short)c.baked_food_yield - (c.pop_lvl>>4);
+		region_array[region_id].baked_production_yield += (short)c.baked_production_yield - (c.pop_lvl>>4);
+		region_array[region_id].baked_gold_yield += (c.pop_lvl>>4);	
+	}
+}
+
+void map_rebake_yields(map_t *map)
+{
+	ulong_t n_cells = map->width * map->height;
+	for(ulong_t i = 0; i < n_cells; i++)
+	{
+		map_rebake_cell_yields(map->cells, i);
+	}
+
+	for(ushort_t i = 0; i < map->region_count; i++)
+	{
+		map_rebake_region_yields(map->regions, map->cells, i);
+	}
+}
+
+void map_add_cell_to_region(map_t *map, ushort_t region_id, ulong_t cell_id)
+{
+	region_t *region = &map->regions[region_id];
+	if(region->cell_count == 255)
+	{
+		WARNINGF("Region [%u] is at cell capacity!", region_id)
+		return;
+	}
+	if (region->cell_capacity <= region->cell_count)
+	{
+		region->cell_capacity = min(region->cell_capacity * REALLOC_PERCENTAGE_INCREASE + 1, MAX_REGION_CELL_CAP);
+		region->cell_ids = (ulong_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(ulong_t)));
+	}
+	region->cell_ids[region->cell_count] = cell_id;
+	region->cell_count++;
+}
+
+void map_add_cells_to_region(map_t *map, ushort_t region_id, ulong_t *cell_ids, uchar_t cell_count)
+{
+	region_t *region = &map->regions[region_id];
+	if((int)region->cell_count + (int)cell_count >= MAX_REGION_CELL_CAP)
+	{
+		WARNINGF("Region [%u] is at cell capacity!", region_id)
+		return;
+	}
+	if (region->cell_capacity <= region->cell_count + cell_count)
+	{
+		region->cell_capacity = min(region->cell_capacity * REALLOC_PERCENTAGE_INCREASE + 1, MAX_REGION_CELL_CAP);
+		region->cell_ids = (ulong_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(ulong_t)));
+	}
+
+	for (ushort_t i = 0; i < cell_count; i++)
+	{
+		map->cells[cell_ids[i]].region_id = region_id; // set region incase it hasn't already been done
+		region->cell_ids[region->cell_count] = cell_ids[i];
+		region->cell_count++;
+	}
+}
+
+bool map_merge_region_a_with_b(map_t *map, ushort_t region_id_a, ushort_t region_id_b, bool sync_region_ids)
+{
+	region_t *region_a = &map->regions[region_id_a];
+	region_t *region_b = &map->regions[region_id_b];
+	if((int)region_a->cell_count + (int)region_b->cell_count >= MAX_REGION_CELL_CAP)
+	{
+		WARNINGF("Regions [%u] & [%u] Cannot be merged! cell counts to high.", region_id_a, region_id_b)
+		return false;
+	}
+
+	// if(region_b->cell_capacity < MAX_REGION_CELL_CAP)
+	// {
+		// region_b->cell_capacity = MAX_REGION_CELL_CAP;
+		// region_b->cell_ids = (ulong_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(ulong_t)));
+	// }
+	if (region_b->cell_capacity < region_a->cell_count + region_b->cell_count)
+	{
+		region_b->cell_capacity += region_a->cell_count;
+		region_b->cell_ids = (ulong_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(ulong_t)));
+	}
+
+	for (ushort_t i = 0; i < region_a->cell_count; i++)
+	{
+		map->cells[region_a->cell_ids[i]].region_id = region_id_b; // set region incase it hasn't already been done
+		region_b->cell_ids[region_b->cell_count] = region_a->cell_ids[i];
+		region_b->cell_count++;
+	}
+
+	map_remove_region(map, region_id_a, sync_region_ids);
+}
 
 void map_remove_cell_from_region(ushort_t region_id, ulong_t cell_id);
 
 void map_remove_cells_from_region(ushort_t region_id, ulong_t *cell_ids);
 
 void map_remove_cells_from_region(ushort_t region_id, ulong_t *cell_id);
-*/
 
+ushort_t map_get_region_pop(map_t *map, ushort_t region_id)
+{
+	ushort_t tot_pop = 0;
+	region_t region = map->regions[region_id];
+
+	for (ushort_t i = 0; i < region.cell_count; i++)
+	{
+		map->cells[region.cell_ids[i]].region_id = region_id;
+		tot_pop += (ushort_t)map->cells[region.cell_ids[i]].pop_lvl;
+	}
+
+	return tot_pop;
+}
+
+color8b_t region_id_to_col(ushort_t n_regions, ushort_t region_id)
+{
+	if(region_id == 0)
+		return BLACK8B;
+
+	return ((float)region_id / (float)n_regions) * 255;
+	// uchar_t r = (((char *)&region_id)[0] * 3) % 8;
+	// uchar_t g = (((char *)&region_id)[0] * 7) % 8;
+	// uchar_t b = (((char *)&region_id)[0] * 5) % 4;
+	// color8b_t col = col8bt(r, g, b);
+	// return (col == 0)? col8bt(0, 0, 1) : col;
+}
 
 #define cg(icon, bg_col, char_col) (cell_graphics_t){bg_col, char_col, icon}
 
@@ -236,12 +454,171 @@ cell_graphics_t map_calc_cell_graphics(cell_t cell)
 
 #define col_hmap(c) tl_Color_to_color8b((Color){min((int)c + 32, 255), min((int)c + 32, 255), 0, 0})
 #define col_pop(c) tl_Color_to_color8b((Color){min((int)c + 32, 255), min((int)c * 2 + 32, 255), 0,0})
+#define col_char(c) tl_Color_to_color8b((Color){c, c, c, c})
 #define p_val(image, x, y) GetImageColor(image, x, y).r
 
-// Draw at the same time as rebaking? Looping through the cells only once?
-void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char map_font, map_visualisation_e vis)
+bool border_cell(map_t *map, ushort_t region_id, ushort_t x, ushort_t y)
 {
-	#define SYMBOL_CULL_P_W 8
+	if(region_id == 0)
+		return false;
+	Pos_t neighbours[4] = {pos(x, min((int)y + 1, map->height - 1)), pos(x, max((int)y - 1, 0)), pos(min((int)x + 1, map->width - 1), y), pos(max((int)x - 1, 0), y)};
+
+	for (uchar_t i = 0; i < 4; i++)
+		if(map_get_cell(map, neighbours[i].x, neighbours[i].y)->region_id != region_id)
+			return true;
+	return false;
+}
+
+void draw_map_default(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, uchar_t g_x1, uchar_t g_y1, ushort_t map_x0, ushort_t map_y0, char map_font, cell_t *selected_cell,
+						color8b_t t_delta_col, color8b_t t_delta_col_invert)
+{
+	ushort_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	
+	int map_display_width = g_x1 - g_x0;
+	int map_display_height = g_y1 - g_y0;
+
+	cell_graphics_t cg;
+	cell_t *c_cell;
+	const color8b_t WATER_A = col8bt(0, 1, 3);
+	
+	for (int _y = 0; _y < map_display_height; _y++)
+		{
+			color8b_t c_interval_bg;
+			ushort_t c_interval_x0 = 0;
+			ushort_t c_interval_x1 = 0;
+			for (int _x = 0; _x < map_display_width; _x++)
+			{
+				c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
+	
+				
+				if(c_cell->env == WATER || c_cell->env == RIVER)
+					cg = map_calc_cell_graphics(*c_cell);
+				
+
+				cg = map_calc_cell_graphics(*c_cell);
+				if(c_cell == selected_cell)
+					cg.bg_col = t_delta_col_invert;
+				else if(border_cell(map, c_cell->region_id, map_x0 + _x,  map_y0 + _y))
+				{
+					if(c_cell->region_id != selected_region_id)
+						cg.bg_col = region_id_to_col(map->region_count, c_cell->region_id);
+					else if(selected_region_id != 0)
+						cg.bg_col = t_delta_col;
+				}
+					
+				if(_x == 0)
+				{
+					c_interval_bg = cg.bg_col;
+				}
+				else
+				{
+					if(c_interval_bg == cg.bg_col)
+					{
+						c_interval_x1++;
+					}
+					else
+					{
+						if(c_interval_bg != WATER_A) // Cull water backgrounds
+							tl_draw_rect_bg(grid, g_x0 + c_interval_x0, g_y0 + _y, g_x0 + c_interval_x1, g_y0 + _y, c_interval_bg);
+						c_interval_bg = cg.bg_col;
+						c_interval_x0 = _x;
+						c_interval_x1 = _x;
+					}
+	
+				}
+			}
+			// Draw last interval
+			if(c_interval_bg != WATER_A) // Cull water backgrounds
+				tl_draw_rect_bg(grid, g_x0 + c_interval_x0, g_y0 + _y, g_x0 + c_interval_x1, g_y0 + _y, c_interval_bg);
+
+			// Draw symbols
+			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
+				for (int _x = 0; _x < map_display_width; _x++)
+				{
+					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y));
+					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
+				}
+		}
+}
+
+void draw_map_terrain(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, uchar_t g_x1, uchar_t g_y1, ushort_t map_x0, ushort_t map_y0, char map_font, cell_t *selected_cell,
+						color8b_t t_delta_col, color8b_t t_delta_col_invert)
+{
+	ushort_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	
+	int map_display_width = g_x1 - g_x0;
+	int map_display_height = g_y1 - g_y0;
+
+	cell_graphics_t cg;
+	cell_t *c_cell;
+	const color8b_t WATER_A = col8bt(0, 1, 3);
+	
+	for (int _y = 0; _y < map_display_height; _y++)
+		{
+			color8b_t c_interval_bg;
+			ushort_t c_interval_x0 = 0;
+			ushort_t c_interval_x1 = 0;
+			for (int _x = 0; _x < map_display_width; _x++)
+			{
+				c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
+	
+				
+				if(c_cell->env == WATER || c_cell->env == RIVER)
+					cg = map_calc_cell_graphics(*c_cell);
+				
+
+				cg = map_calc_cell_graphics(*c_cell);
+				if(c_cell == selected_cell)
+					cg.bg_col = t_delta_col_invert;
+				else if(selected_region_id != 0 && selected_region_id == c_cell->region_id)
+					cg.bg_col = t_delta_col;
+				
+					
+				if(_x == 0)
+				{
+					c_interval_bg = cg.bg_col;
+				}
+				else
+				{
+					if(c_interval_bg == cg.bg_col)
+					{
+						c_interval_x1++;
+					}
+					else
+					{
+						if(c_interval_bg != WATER_A) // Cull water backgrounds
+							tl_draw_rect_bg(grid, g_x0 + c_interval_x0, g_y0 + _y, g_x0 + c_interval_x1, g_y0 + _y, c_interval_bg);
+						c_interval_bg = cg.bg_col;
+						c_interval_x0 = _x;
+						c_interval_x1 = _x;
+					}
+	
+				}
+			}
+			// Draw last interval
+			if(c_interval_bg != WATER_A) // Cull water backgrounds
+				tl_draw_rect_bg(grid, g_x0 + c_interval_x0, g_y0 + _y, g_x0 + c_interval_x1, g_y0 + _y, c_interval_bg);
+
+			// Draw symbols
+			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
+				for (int _x = 0; _x < map_display_width; _x++)
+				{
+					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y));
+					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
+				}
+		}
+}
+
+// Draw at the same time as rebaking? Looping through the cells only once?
+void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char map_font, map_visualisation_e vis, cell_t *selected_cell)
+{
+	
+	ushort_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+
+	uchar_t t_char = ((sin(4 * GetTime()) + 1.0f)/2.0f) * 255.0f;
+	color8b_t t_delta_col = col_char(t_char);
+	color8b_t t_delta_col_invert = col_char(255 - t_char);
+	
 
 	Pos_t grid_dimensions = tl_grid_get_dimensions(grid);
 	int g_cam_x = (int)grid_dimensions.x / 2;
@@ -266,10 +643,23 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char ma
 	// int map_x1 = min(map->width, cam_map_pos.x + g_cam_x);
 	// int map_y1 = min(map->height, cam_map_pos.y + g_cam_y);
 
+	const color8b_t WATER_A = col8bt(0, 1, 3);
+	tl_draw_rect_bg(grid,g_x0, g_y0, g_x1, g_y1, WATER_A);
+
+	switch (vis)
+	{
+		case DEFAULT:
+		draw_map_default(grid, map, g_x0, g_y0, g_x1, g_y1, map_x0, map_y0, map_font, selected_cell, t_delta_col, t_delta_col_invert);
+		return;
+		case TERRAIN:
+		draw_map_terrain(grid, map, g_x0, g_y0, g_x1, g_y1, map_x0, map_y0, map_font, selected_cell, t_delta_col, t_delta_col_invert);
+		return;
+	}
+	
+
 	int map_display_width = g_x1 - g_x0;
 	int map_display_height = g_y1 - g_y0;
 
-	const color8b_t WATER_A = col8bt(0, 1, 3);
 	
 	cell_graphics_t cg;
 	tl_draw_rect_bg(grid,g_x0, g_y0, g_x1, g_y1, WATER_A);
@@ -284,14 +674,34 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char ma
 		for (int _x = 0; _x < map_display_width; _x++)
 		{
 			c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
-			if(c_cell->env == WATER)
-				cg = map_calc_cell_graphics(*c_cell);
-			else if(vis == DEFAULT)
+
+			
+			if(c_cell->env == WATER || c_cell->env == RIVER)
 				cg = map_calc_cell_graphics(*c_cell);
 			else if(vis == POPULATION)
+			{
 				cg = cg('\0', col_pop(c_cell->pop_lvl), BLACK8B);
+				if(c_cell == selected_cell)
+					cg.bg_col = t_delta_col_invert;
+				else if(c_cell->region_id == selected_region_id)
+					cg.bg_col = t_delta_col;
+			}
+			else if(vis == REGIONS)
+			{
+				cg = cg('\0', region_id_to_col(map->region_count, c_cell->region_id), BLACK8B);
+				if(c_cell == selected_cell)
+					cg.bg_col = t_delta_col_invert;
+				else if(c_cell->region_id == selected_region_id)
+					cg.bg_col = t_delta_col;
+			}
 			else if(vis == HEIGHTMAP)
-				cg = cg('\0', col_hmap(GetImageColor(map->heightmap, map_x0 + _x, map_y0 + _y).r), BLACK8B);
+			{
+				cg = cg('\0', col_hmap(GetImageColor(map->mapg_data.heightmap, map_x0 + _x, map_y0 + _y).r), BLACK8B);
+				if(c_cell == selected_cell)
+					cg.bg_col = t_delta_col_invert;
+				else if(c_cell->region_id == selected_region_id)
+					cg.bg_col = t_delta_col;
+			}
 			if(_x == 0)
 			{
 				c_interval_bg = cg.bg_col;
