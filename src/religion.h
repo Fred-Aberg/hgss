@@ -4,13 +4,13 @@
 
 typedef struct
 {
-	uint_t point_of_divergence;	// used in determining "distance" between religions and traversal-optimization
+	uint16_t point_of_divergence;	// used in determining "distance" between religions and traversal-optimization
 }religion_t;
 
 typedef struct
 {
-	uchar_t child_count;
-	uchar_t child_capacity;
+	uint8_t child_count;
+	uint8_t child_capacity;
 	religion_t religion;	
 	struct religion_node_t *parent_religion;
 	struct religion_node_t *child_religions;
@@ -23,5 +23,5 @@ typedef struct
 
 typedef struct 
 {
-	uchar_t matrix[MAX_RELIGIONS][MAX_RELIGIONS];
+	uint8_t matrix[MAX_RELIGIONS][MAX_RELIGIONS];
 }religion_relation_matrix_t;

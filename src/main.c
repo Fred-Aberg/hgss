@@ -46,7 +46,7 @@ void map_vis_button(void *domain, void *function_data, cursor_t *cursor)
 }
 
 
-void woodify_cell(map_t *map, ushort_t x, ushort_t y)
+void woodify_cell(map_t *map, uint16_t x, uint16_t y)
 {
 	cell_t *c = map_get_cell(map, x, y);
 
@@ -69,7 +69,7 @@ void woodify_cell(map_t *map, ushort_t x, ushort_t y)
 	}
 }
 
-void unwoodify_cell(map_t *map, ushort_t x, ushort_t y)
+void unwoodify_cell(map_t *map, uint16_t x, uint16_t y)
 {
 	cell_t *c = map_get_cell(map, x, y);
 
@@ -108,11 +108,12 @@ container_t *cell_info_text;
 cell_t *selected_cell = NULL;
 char cell_info_buf[CELL_INFO_BUF_LEN];
 
-void cell_to_str(map_t *map, cell_t *c, ushort_t x, ushort_t y)
+void cell_to_str(map_t *map, cell_t *c, uint16_t x, uint16_t y)
 {
 	char env_buf[32];
 	map_env_to_str(env_buf, c->env);
-	sprintf(cell_info_buf, "[%u, %u]: %s\n  Pop: %u\n  F:%u P:%u\n  Region ID: %u\n    Pop: %u\n    F:%d P:%d G:%d\n    No. Cells: %u", 
+	sprintf(cell_info_buf, "[%u, %u]: %s\n  Pop: %u\n  \b002\a070{\b:%u\a \b002\a640|\b:%u\a\n  \
+	Region ID: %u\n    Pop: %u\n    \b002\a070{\b:%u\a \b002\a640|\b:%u\a \b002\a770}\b:%d\a\n    No. Cells: %u", 
 	x, y, env_buf, c->pop_lvl, c->baked_food_yield, c->baked_production_yield, 
 	c->region_id, map_get_region_pop(map, c->region_id), map->regions[c->region_id].baked_food_yield, map->regions[c->region_id].baked_production_yield,
 	map->regions[c->region_id].baked_gold_yield, map->regions[c->region_id].cell_count);
@@ -177,7 +178,7 @@ int main(){
 
    	int screensize_x = 0;
 	int screensize_y = 0;
-	uint_t tile_width = 0;
+	uint16_t tile_width = 0;
 	char input[50];
  
    	printf("Screen width:\n");
@@ -230,17 +231,17 @@ int main(){
 	ascui_get_text_data(cell_info_text)->text = &cell_info_buf[0];
 	ascui_get_text_data(cell_info_text)->text_len = CELL_INFO_BUF_LEN;
 
-	// map_t *map = map_create_map(500,500);
+	// map_t *map = map_create_map(100,100);
 	// map->mapg_data.seed = 0;
 	// map->mapg_data.sea_level = 127;
-	// mapgen_assign_heightmap(map, 10, 10);
+	// mapgen_assign_heightmap(map, 30, 30);
 	
 	map_t *map = mapgen_gen_from_heightmap(LoadImage("Resources/Heightmaps/aaland.png"), 15, 0);
 	mapgen_place_rivers(map);
 	mapgen_place_rivers(map);
 	mapgen_place_rivers(map);
 	mapgen_clear_region_ids(map);
-	mapgen_place_regions(map, 255, 100, 40);
+	mapgen_place_regions(map, 250, 0, 250);
 	
 	mapgen_populate_map(map, 0.20f, 0.75f, 20.0f);
 	// map_t *map = mapgen_gen_continent(400, 255, 80, 4380343);
@@ -248,19 +249,19 @@ int main(){
 	Image hmap_img = ImageCopy(map->mapg_data.heightmap);
 	Texture2D hmap_tex = LoadTextureFromImage(hmap_img);
 	
-	Pos_t map_view_camera = pos(map->width/2,map->height/2);
-	Pos_t map_view_composite;
+	pos16_t map_view_camera = pos16(map->width/2,map->height/2);
+	pos16_t map_view_composite;
 	
 	cursor_t cursor; 
 
 	ascui_print_ui(top_container);
 
-	Pos_t mouse_delta_start;
+	pos16_t mouse_delta_start;
 	int subg_mouse_delta_x;
 	int subg_mouse_delta_y;
 	
     while (!WindowShouldClose()){
-		Pos_t mouse_scr_pos = pos(GetMouseX(), GetMouseY());
+		pos16_t mouse_scr_pos = pos16(GetMouseX(), GetMouseY());
 
     	tick++;
 		frame_time = -GetTime();
@@ -270,13 +271,13 @@ int main(){
 
 		if(IsKeyDown(45))
 		{
-			uint_t new_tile_size = main_grid->tile_p_w + 1;
+			uint16_t new_tile_size = main_grid->tile_p_w + 1;
 			tl_resize_grid(main_grid, 0, 0, screensize_x, screensize_y, new_tile_size);
 			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
 		}
 		else if(IsKeyDown(47))
 		{
-			uint_t new_tile_size = main_grid->tile_p_w - 1;
+			uint16_t new_tile_size = main_grid->tile_p_w - 1;
 			tl_resize_grid(main_grid, 0, 0, screensize_x, screensize_y, new_tile_size);
 			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
 		}
@@ -292,7 +293,7 @@ int main(){
 		}
 		
 		// Main grid
-		Pos_t mouse_grid_pos = tl_screen_to_grid_coords(main_grid, mouse_scr_pos);
+		pos16_t mouse_grid_pos = tl_screen_to_grid_coords(main_grid, mouse_scr_pos);
 		cursor.x = mouse_grid_pos.x;
 		cursor.y = mouse_grid_pos.y;
 		cursor.right_button_pressed = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
@@ -325,8 +326,8 @@ int main(){
 				cursor.selected_container = NULL;
 		}
 
-		Pos_t mouse_subgrid_pos;
-		Pos_t mouse_map_pos;
+		pos16_t mouse_subgrid_pos;
+		pos16_t mouse_map_pos;
 		// Vector2 mouse_delta = GetMouseDelta();
 		if(cursor.hovered_container == subgrid_container)
 		{
@@ -340,7 +341,7 @@ int main(){
 			map_view_camera.x = clamp(0, (int)map_view_camera.x + key_cam_delta_x, map->width - 1);
 			map_view_camera.y = clamp(0, (int)map_view_camera.y + key_cam_delta_y, map->height - 1);
 			
-			// Pos_t subgrid_dims = tl_grid_get_dimensions(subgrid);
+			// pos16_t subgrid_dims = tl_grid_get_dimensions(subgrid);
 			mouse_subgrid_pos = tl_screen_to_grid_coords(subgrid, mouse_scr_pos);
 
 			// map view camera navigation
@@ -425,8 +426,8 @@ int main(){
 		//-------------------
 		
 		tl_rendering_time = -GetTime();
-		Pos_t main_grid_dcalls = tl_render_grid(main_grid);
-		Pos_t sub_grid_dcalls = tl_render_grid(subgrid);
+		pos16_t main_grid_dcalls = tl_render_grid(main_grid);
+		pos16_t sub_grid_dcalls = tl_render_grid(subgrid);
 		tl_rendering_time += GetTime();
 
 		frame_time += GetTime();

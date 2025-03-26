@@ -4,14 +4,14 @@
 
 typedef struct
 {
-	ushort_t id;	// useful as long as the culture is alive, corresponds to index in w_living_cultures[]
-	ushort_t point_of_divergence;
+	uint16_t id;	// useful as long as the culture is alive, corresponds to index in w_living_cultures[]
+	uint16_t point_of_divergence;
 }culture_t;
 
 typedef struct
 {
-	uchar_t child_count;
-	uchar_t child_capacity;
+	uint8_t child_count;
+	uint8_t child_capacity;
 	culture_t culture;	
 	struct culture_node_t *parent_culture;
 	struct culture_node_t *child_culture;
@@ -24,9 +24,9 @@ typedef struct
 
 typedef struct 
 {
-	uchar_t matrix[MAX_CULTURES][MAX_CULTURES];
+	uint8_t matrix[MAX_CULTURES][MAX_CULTURES];
 }culture_relation_matrix_t;
 
 void clt_calculate_relation_matrix(culture_relation_matrix_t *matrix, culture_tree_t culture_tree, culture_t *living_cultures[MAX_CULTURES]);
 
-uchar_t clt_calculate_relation(culture_relation_matrix_t *matrix, culture_node_t clt_a, culture_node_t clt_b);
+uint8_t clt_calculate_relation(culture_relation_matrix_t *matrix, culture_node_t clt_a, culture_node_t clt_b);

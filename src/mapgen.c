@@ -30,54 +30,54 @@ bool watery(cell_t *c)
 	return c->env == WATER || c->env == RIVER;
 }
 
-Pos_t find_nearest_water_source(map_t *map, ushort_t x, ushort_t y)
+pos16_t find_nearest_water_source(map_t *map, uint16_t x, uint16_t y)
 {
-	ushort_t x0;
-	ushort_t x1;
-	ushort_t y0;
-	ushort_t y1;
-	for (ushort_t srch_dst = 1; srch_dst < 100; srch_dst++)
+	uint16_t x0;
+	uint16_t x1;
+	uint16_t y0;
+	uint16_t y1;
+	for (uint16_t srch_dst = 1; srch_dst < 100; srch_dst++)
 	{
-		for (ushort_t _y = max((int)y - srch_dst / 2, 0); _y < min((int)y + srch_dst / 2, map->height); _y++)
+		for (uint16_t _y = max((int)y - srch_dst / 2, 0); _y < min((int)y + srch_dst / 2, map->height); _y++)
 		{
 			x0 = max((int)x - srch_dst / 2, 0);
 			x1 = min((int)x + srch_dst / 2, map->width);
 			if (map_get_cell(map, x0, _y)->env == WATER || map_get_cell(map, x0, _y)->env == RIVER)
-				return pos(x0, _y);
+				return pos16(x0, _y);
 			else if (map_get_cell(map, x1, _y)->env == WATER || map_get_cell(map, x1, _y)->env == RIVER)
-				return pos(x1, _y);
+				return pos16(x1, _y);
 		}
 
-		for (ushort_t _x = max((int)x - srch_dst / 2, 0); _x < min((int)x + srch_dst / 2, map->width); _x++)
+		for (uint16_t _x = max((int)x - srch_dst / 2, 0); _x < min((int)x + srch_dst / 2, map->width); _x++)
 		{
 			y0 = max((int)y - srch_dst / 2, 0);
 			y1 = min((int)y + srch_dst / 2, map->height);
 			if (map_get_cell(map, _x, y0)->env == WATER || map_get_cell(map, _x, y0)->env == RIVER)
-				return pos(_x, y0);
+				return pos16(_x, y0);
 			else if (map_get_cell(map, _x, y1)->env == WATER || map_get_cell(map, _x, y1)->env == RIVER)
-				return pos(_x, y1);
+				return pos16(_x, y1);
 		}
 	}
 
-	return pos(0,0); // No rivers for (0,0) lmao
+	return pos16(0,0); // No rivers for (0,0) lmao
 }
 
-ushort_t find_nearest_region(map_t *map, ushort_t x, ushort_t y)
+uint16_t find_nearest_region(map_t *map, uint16_t x, uint16_t y)
 {
-	ushort_t c_region_id = map_get_cell(map, x, y)->region_id;
-	ushort_t x0;
-	ushort_t x1;
-	ushort_t y0;
-	ushort_t y1;
-	for (ushort_t srch_dst = 1; srch_dst < 100; srch_dst++)
+	uint16_t c_region_id = map_get_cell(map, x, y)->region_id;
+	uint16_t x0;
+	uint16_t x1;
+	uint16_t y0;
+	uint16_t y1;
+	for (uint16_t srch_dst = 1; srch_dst < 100; srch_dst++)
 	{
-		for (ushort_t _y = max((int)y - srch_dst / 2, 0); _y < min((int)y + srch_dst / 2, map->height); _y++)
+		for (uint16_t _y = max((int)y - srch_dst / 2, 0); _y < min((int)y + srch_dst / 2, map->height); _y++)
 		{
 			x0 = max((int)x - srch_dst / 2, 0);
 			x1 = min((int)x + srch_dst / 2, map->width);
 
-			ushort_t N_cell_r_id = map_get_cell(map, x0, _y)->region_id;
-			ushort_t S_cell_r_id = map_get_cell(map, x1, _y)->region_id;
+			uint16_t N_cell_r_id = map_get_cell(map, x0, _y)->region_id;
+			uint16_t S_cell_r_id = map_get_cell(map, x1, _y)->region_id;
 			
 			if (N_cell_r_id != 0 && N_cell_r_id != c_region_id)
 				return N_cell_r_id;
@@ -85,13 +85,13 @@ ushort_t find_nearest_region(map_t *map, ushort_t x, ushort_t y)
 				return S_cell_r_id;
 		}
 
-		for (ushort_t _x = max((int)x - srch_dst / 2, 0); _x < min((int)x + srch_dst / 2, map->width); _x++)
+		for (uint16_t _x = max((int)x - srch_dst / 2, 0); _x < min((int)x + srch_dst / 2, map->width); _x++)
 		{
 			y0 = max((int)y - srch_dst / 2, 0);
 			y1 = min((int)y + srch_dst / 2, map->height);
 
-			ushort_t W_cell_r_id = map_get_cell(map, _x, y0)->region_id;
-			ushort_t E_cell_r_id = map_get_cell(map, _x, y1)->region_id;
+			uint16_t W_cell_r_id = map_get_cell(map, _x, y0)->region_id;
+			uint16_t E_cell_r_id = map_get_cell(map, _x, y1)->region_id;
 			
 			if (W_cell_r_id != 0 && W_cell_r_id != c_region_id)
 				return W_cell_r_id;
@@ -108,22 +108,22 @@ Image *qsort_heightmap;
 // elev. comparison function
 int compare_elev(const void* a, const void* b) 
 {
-   return (int)p_val(*qsort_heightmap, (*(Pos_t *)a).x, (*(Pos_t *)a).y) - (int)p_val(*qsort_heightmap, (*(Pos_t *)b).x, (*(Pos_t *)b).y);
+   return (int)p_val(*qsort_heightmap, (*(pos16_t *)a).x, (*(pos16_t *)a).y) - (int)p_val(*qsort_heightmap, (*(pos16_t *)b).x, (*(pos16_t *)b).y);
 }
 
-ushort_t dst(ushort_t origin_x, ushort_t origin_y, ushort_t x, ushort_t y)
+uint16_t dst(uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y)
 {
 	return sqrt(pow(x-origin_x, 2) + pow(y-origin_y, 2));
 }
 
-ushort_t n_rivers = 0;
-bool plot_river_3(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, ushort_t y, ushort_t parent_x, ushort_t parent_y, 
-					ushort_t length, ushort_t id, ushort_t max_len)
+uint16_t n_rivers = 0;
+bool plot_river_3(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y, uint16_t parent_x, uint16_t parent_y, 
+					uint16_t length, uint16_t id, uint16_t max_len)
 {	
 	if(x < 3 || y < 3 || x > map->width-3 || y > map->height-3)
 		return false;
 
-	ushort_t distance = dst(origin_x, origin_y, x, y);
+	uint16_t distance = dst(origin_x, origin_y, x, y);
 	if(length > distance * 3) // Loop / meandering detection
 	{
 		puts("\nKilled by distance");
@@ -147,14 +147,14 @@ bool plot_river_3(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, 
 	if(c_cell->env == RIVER) // Join or create lake ?
 		return true;
 	
-	Pos_t river_cnds[4] = {pos(x, min((int)y + 1, map->height - 1)), pos(x, max((int)y - 1, 0)), pos(min((int)x + 1, map->width - 1), y), pos(max((int)x - 1, 0), y)};
+	pos16_t river_cnds[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
 	
-	uchar_t c_elevation = p_val(map->mapg_data.heightmap, x, y);
+	uint8_t c_elevation = p_val(map->mapg_data.heightmap, x, y);
 	
 	qsort_heightmap = &map->mapg_data.heightmap;
-	qsort(river_cnds, 4, sizeof(Pos_t), compare_elev);
+	qsort(river_cnds, 4, sizeof(pos16_t), compare_elev);
 
-	uchar_t cnd_elevation;
+	uint8_t cnd_elevation;
 
 	printf("\n[%u] L: %u Dst: %u (%u, %u) -> %u", id, length, distance, x, y, c_elevation);
 
@@ -199,21 +199,21 @@ bool plot_river_3(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, 
 }
 
 #define PATH_ARRAY_LEN 512
-bool in_path(Pos_t *parent_path, ushort_t x, ushort_t y) // check adjacency?
+bool in_path(pos16_t *parent_path, uint16_t x, uint16_t y) // check adjacency?
 {
-	for (ushort_t i = 0; i < PATH_ARRAY_LEN; i++)
+	for (uint16_t i = 0; i < PATH_ARRAY_LEN; i++)
 		if(parent_path[i].x == x && parent_path[i].y == y)
 			return true;
 	return false;
 }
 
-bool plot_river_2(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, ushort_t y, ushort_t parent_x, ushort_t parent_y, 
-					ushort_t length, Pos_t *parent_path, ushort_t path_count)
+bool plot_river_2(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y, uint16_t parent_x, uint16_t parent_y, 
+					uint16_t length, pos16_t *parent_path, uint16_t path_count)
 {		
 	if(in_path(parent_path, x, y))
 		return false;
 
-	ushort_t distance = dst(origin_x, origin_y, x, y);
+	uint16_t distance = dst(origin_x, origin_y, x, y);
 	if(length > distance * 4) // Loop / meandering detection
 	{
 		puts("\nKilled by distance");
@@ -239,35 +239,35 @@ bool plot_river_2(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, 
 	if(c_cell->env == RIVER) // Join or create lake ?
 		return true;
 	
-	Pos_t c_path[PATH_ARRAY_LEN];
-	memcpy(&c_path[0], &parent_path[0], PATH_ARRAY_LEN * sizeof(Pos_t));
-	c_path[path_count % PATH_ARRAY_LEN] = pos(x, y);
+	pos16_t c_path[PATH_ARRAY_LEN];
+	memcpy(&c_path[0], &parent_path[0], PATH_ARRAY_LEN * sizeof(pos16_t));
+	c_path[path_count % PATH_ARRAY_LEN] = pos16(x, y);
 	path_count++;
 
 	if(parent_x != x)
 	{
-		c_path[path_count % PATH_ARRAY_LEN] = pos(x + ((int)parent_x - (int)x), y + 1);
+		c_path[path_count % PATH_ARRAY_LEN] = pos16(x + ((int)parent_x - (int)x), y + 1);
 		path_count++;	
-		c_path[path_count % PATH_ARRAY_LEN] = pos(x + ((int)parent_x - (int)x), y - 1);
+		c_path[path_count % PATH_ARRAY_LEN] = pos16(x + ((int)parent_x - (int)x), y - 1);
 		path_count++;	
 	}
 	else
 	{
-		c_path[path_count % PATH_ARRAY_LEN] = pos(x + 1, y + ((int)parent_y - (int)y));
+		c_path[path_count % PATH_ARRAY_LEN] = pos16(x + 1, y + ((int)parent_y - (int)y));
 		path_count++;	
-		c_path[path_count % PATH_ARRAY_LEN] = pos(x - 1, y + ((int)parent_y - (int)y));
+		c_path[path_count % PATH_ARRAY_LEN] = pos16(x - 1, y + ((int)parent_y - (int)y));
 		path_count++;
 	}
 	
 	
-	Pos_t river_cnds[4] = {pos(x, min((int)y + 1, map->height - 1)), pos(x, max((int)y - 1, 0)), pos(min((int)x + 1, map->width - 1), y), pos(max((int)x - 1, 0), y)};
+	pos16_t river_cnds[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
 	
-	uchar_t c_elevation = p_val(map->mapg_data.heightmap, x, y);
+	uint8_t c_elevation = p_val(map->mapg_data.heightmap, x, y);
 	
 	qsort_heightmap = &map->mapg_data.heightmap;
-	qsort(river_cnds, 4, sizeof(Pos_t), compare_elev);
+	qsort(river_cnds, 4, sizeof(pos16_t), compare_elev);
 
-	uchar_t cnd_elevation;
+	uint8_t cnd_elevation;
 
 	printf("\n\tP[%u/%u]\nL: %u Dst: %u (%u, %u) -> %u", path_count % PATH_ARRAY_LEN, PATH_ARRAY_LEN, length, distance, x, y, c_elevation);
 
@@ -288,7 +288,7 @@ bool plot_river_2(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, 
 			}
 			else
 			{
-				c_path[path_count % PATH_ARRAY_LEN] = pos(river_cnds[i].x, river_cnds[i].y);
+				c_path[path_count % PATH_ARRAY_LEN] = pos16(river_cnds[i].x, river_cnds[i].y);
 				path_count++;
 			}
 		}
@@ -296,17 +296,17 @@ bool plot_river_2(map_t *map, ushort_t origin_x, ushort_t origin_y, ushort_t x, 
 	return false;
 }
 
-void mapgen_plot_river(map_t *map, ushort_t x, ushort_t y)
+void mapgen_plot_river(map_t *map, uint16_t x, uint16_t y)
 {
-	// Pos_t path[PATH_ARRAY_LEN];
-	// memset(&path[0], 0, PATH_ARRAY_LEN * sizeof(Pos_t)); // Null path array
+	// pos16_t path[PATH_ARRAY_LEN];
+	// memset(&path[0], 0, PATH_ARRAY_LEN * sizeof(pos16_t)); // Null path array
 	plot_river_3(map,x, y, x, y, x, y, 0, n_rivers++, 50);
 }
 
 void mapgen_place_rivers(map_t *map)
 {
-	for (uint_t y = 0; y < map->height; y++)
-		for (uint_t x = 0; x < map->width; x++)
+	for (uint16_t y = 0; y < map->height; y++)
+		for (uint16_t x = 0; x < map->width; x++)
 		{
 			int rand = GetRandomValue(0, 10000);
 			if (map_get_cell(map, x, y)->env == MOUNTAINS && rand > 9999)
@@ -348,8 +348,8 @@ void mapgen_assign_heightmap(map_t *map, int ridge_sharpness, int island_sharpne
 	map->mapg_data.heightmap = heightmap;
 
 
-	for (uint_t y = 0; y < map->height; y++)
-		for (uint_t x = 0; x < map->width; x++)
+	for (uint16_t y = 0; y < map->height; y++)
+		for (uint16_t x = 0; x < map->width; x++)
 		{
 			ImageDrawPixel(&heightmap, x, y, val(
 				clamp( 0,(
@@ -367,10 +367,10 @@ void mapgen_assign_heightmap(map_t *map, int ridge_sharpness, int island_sharpne
 void mapgen_populate_map(map_t *map, float amp, float randomness, float r_scale)
 {
 	Image perlin_pop = GenImagePerlinNoise(map->width, map->height, seed_x, seed_y, r_scale);
-	for (uint_t y = 0; y < map->height; y++)
-		for (uint_t x = 0; x < map->width; x++)
+	for (uint16_t y = 0; y < map->height; y++)
+		for (uint16_t x = 0; x < map->width; x++)
 		{
-			uchar_t cell_height = p_val(map->mapg_data.heightmap, x, y);
+			uint8_t cell_height = p_val(map->mapg_data.heightmap, x, y);
 			cell_t *c_cell = map_get_cell(map, x, y);
 			
 			c_cell->pop_lvl = (cell_height > map->mapg_data.sea_level) * clamp(0, 255 - cell_height - map->mapg_data.sea_level, 255) * amp;
@@ -383,19 +383,19 @@ void mapgen_update_map_environments_from_heightmap(map_t *map)
 {
 	Image perlin_woods = GenImagePerlinNoise(map->width, map->height, seed_x, seed_y, 100.0f);
 	
-	uchar_t mountain_level = 255 - (255 - map->mapg_data.sea_level)*M_LVL_P;
-	uchar_t highlands_level = 255 - (255 - map->mapg_data.sea_level)*HL_LVL_P;
-	uchar_t hills_level = 255 - (255 - map->mapg_data.sea_level)*HLS_LVL_P;
-	uchar_t flatlands_level = 255 - (255 - map->mapg_data.sea_level)*FLT_LVL_P;
+	uint8_t mountain_level = 255 - (255 - map->mapg_data.sea_level)*M_LVL_P;
+	uint8_t highlands_level = 255 - (255 - map->mapg_data.sea_level)*HL_LVL_P;
+	uint8_t hills_level = 255 - (255 - map->mapg_data.sea_level)*HLS_LVL_P;
+	uint8_t flatlands_level = 255 - (255 - map->mapg_data.sea_level)*FLT_LVL_P;
 	
-	for (uint_t y = 0; y < map->height; y++)
+	for (uint16_t y = 0; y < map->height; y++)
 	{
-		for (uint_t x = 0; x < map->width; x++)
+		for (uint16_t x = 0; x < map->width; x++)
 		{
-			uchar_t cell_height = p_val(map->mapg_data.heightmap, x, y);
+			uint8_t cell_height = p_val(map->mapg_data.heightmap, x, y);
 			cell_t *c_cell = map_get_cell(map, x, y);
 			
-			uchar_t wood_val = p_val(perlin_woods, x, y);
+			uint8_t wood_val = p_val(perlin_woods, x, y);
 
 			if(cell_height > mountain_level)
 			{
@@ -458,10 +458,10 @@ void mapgen_update_map_environments_from_heightmap(map_t *map)
 }
 
 
-map_t *mapgen_gen_from_heightmap(Image heightmap, uchar_t sea_level, long seed)
+map_t *mapgen_gen_from_heightmap(Image heightmap, uint8_t sea_level, long seed)
 {
-	ushort_t w = heightmap.width;
-	ushort_t h = heightmap.height;
+	uint16_t w = heightmap.width;
+	uint16_t h = heightmap.height;
 
 	map_t *map = map_create_map(w, h);
 	map->mapg_data.heightmap = heightmap;
@@ -476,8 +476,8 @@ map_t *mapgen_gen_from_heightmap(Image heightmap, uchar_t sea_level, long seed)
 void mapgen_clear_region_ids(map_t *map)
 {
 	map->region_count = 0;
-	for (uint_t y = 0; y < map->height; y++)
-		for (uint_t x = 0; x < map->width; x++)
+	for (uint16_t y = 0; y < map->height; y++)
+		for (uint16_t x = 0; x < map->width; x++)
 		{
 			map_get_cell(map, x, y)->region_id = 0;
 		}
@@ -485,7 +485,7 @@ void mapgen_clear_region_ids(map_t *map)
 
 #define MAX_B_CELLS 512
 
-void add_border_cells(map_t *map, Pos_t *border_cells, ushort_t x, ushort_t y)
+void add_border_cells(map_t *map, pos16_t *border_cells, uint16_t x, uint16_t y)
 {
 	bool add_S = (y < map->height - 1) && (map_get_cell(map, x, y + 1)->region_id == 0);
 	bool add_N = (y > 0) && (map_get_cell(map, x, y - 1)->region_id == 0);
@@ -497,13 +497,13 @@ void add_border_cells(map_t *map, Pos_t *border_cells, ushort_t x, ushort_t y)
 		if(border_cells[i].x == 0 && border_cells[i].y == 0)
 		{
 			if(add_S)
-				{border_cells[i] = pos(x, y + 1); add_S = false;}
+				{border_cells[i] = pos16(x, y + 1); add_S = false;}
 			else if(add_N)
-				{border_cells[i] = pos(x, y - 1); add_N = false;}
+				{border_cells[i] = pos16(x, y - 1); add_N = false;}
 			else if(add_E)
-				{border_cells[i] = pos(x + 1, y); add_E = false;}
+				{border_cells[i] = pos16(x + 1, y); add_E = false;}
 			else if(add_W)
-				{border_cells[i] = pos(x - 1, y); add_W = false;}
+				{border_cells[i] = pos16(x - 1, y); add_W = false;}
 			else
 				return;
 		}
@@ -511,18 +511,18 @@ void add_border_cells(map_t *map, Pos_t *border_cells, ushort_t x, ushort_t y)
 	
 }
 
-ushort_t calc_cell_diff(map_t *map, cell_t *root_cell, ushort_t rt_x, ushort_t rt_y, ushort_t x, ushort_t y)
+uint16_t calc_cell_diff(map_t *map, cell_t *root_cell, uint16_t rt_x, uint16_t rt_y, uint16_t x, uint16_t y)
 {
 	cell_t *c_cell = map_get_cell(map, x, y);
-	ushort_t distance = dst(rt_x, rt_y, x, y);
+	uint16_t distance = dst(rt_x, rt_y, x, y);
 	if (c_cell->env == WATER || c_cell->env == RIVER)
 		return 1000 + distance * 10;
 	return abs((int)c_cell->env - (int)root_cell->env) + distance * 5;
 }
 
-bool cell_already_present(ulong_t *cell_ids, ushort_t cell_count, ulong_t id)
+bool cell_already_present(uint32_t *cell_ids, uint16_t cell_count, uint32_t id)
 {
-	for(ushort_t i = 0; i < cell_count; i++)
+	for(uint16_t i = 0; i < cell_count; i++)
 		if(cell_ids[i] == id)
 		{
 			return true;
@@ -531,7 +531,7 @@ bool cell_already_present(ulong_t *cell_ids, ushort_t cell_count, ulong_t id)
 	return false;
 }
 
-void mapgen_plot_region(map_t *map, ushort_t rt_x, ushort_t rt_y, ushort_t region_id, uchar_t max_cells)
+void mapgen_plot_region(map_t *map, uint16_t rt_x, uint16_t rt_y, uint16_t region_id, uint8_t max_cells)
 {
 	#define xy_to_i(x, y) x + y * map->width
 
@@ -544,20 +544,20 @@ void mapgen_plot_region(map_t *map, ushort_t rt_x, ushort_t rt_y, ushort_t regio
 		
 	root_cell->region_id = region_id;
 
-	uchar_t n_region_cells = 1;
-	ulong_t region_cell_ids[max_cells];
+	uint8_t n_region_cells = 1;
+	uint32_t region_cell_ids[max_cells];
 	region_cell_ids[0] = xy_to_i(rt_x, rt_y);
 
-	Pos_t border_cells[MAX_B_CELLS];
-	memset(&border_cells[0], 0, MAX_B_CELLS * sizeof(Pos_t));
+	pos16_t border_cells[MAX_B_CELLS];
+	memset(&border_cells[0], 0, MAX_B_CELLS * sizeof(pos16_t));
 	add_border_cells(map, border_cells, rt_x, rt_y);
 	cell_t *winner;
 	bool border_cells_empty = false;
 	for(int i = 0; i < max_cells; i++)
 	{
-		ushort_t border_winner;
-		ushort_t lowest_diff = 65000;
-		ushort_t c_diff;
+		uint16_t border_winner;
+		uint16_t lowest_diff = 65000;
+		uint16_t c_diff;
 		border_cells_empty = true;
 		for(int j = 0; j < MAX_B_CELLS; j++)
 		{
@@ -578,17 +578,17 @@ void mapgen_plot_region(map_t *map, ushort_t rt_x, ushort_t rt_y, ushort_t regio
 		winner = map_get_cell(map, border_cells[border_winner].x, border_cells[border_winner].y);
 		if(watery(winner))
 		{
-			border_cells[border_winner] = pos(0,0);
+			border_cells[border_winner] = pos16(0,0);
 			continue;
 		}
 
-		max_cells = clamp(0, max_cells - lowest_diff / 5, 255); // Additional cost to expensive expansion
+		// max_cells = clamp(0, max_cells - lowest_diff / 5, 255); // Additional cost to expensive expansion
 		winner->region_id = region_id;
 
 		// Skip duplicates
 		if(cell_already_present(region_cell_ids, n_region_cells, xy_to_i(border_cells[border_winner].x, border_cells[border_winner].y)))
 		{
-			border_cells[border_winner] = pos(0,0);
+			border_cells[border_winner] = pos16(0,0);
 			continue;
 		}
 		
@@ -596,7 +596,7 @@ void mapgen_plot_region(map_t *map, ushort_t rt_x, ushort_t rt_y, ushort_t regio
 		n_region_cells++;
 		
 		add_border_cells(map, border_cells, border_cells[border_winner].x, border_cells[border_winner].y);
-		border_cells[border_winner] = pos(0,0);
+		border_cells[border_winner] = pos16(0,0);
 	}
 
 
@@ -605,12 +605,12 @@ void mapgen_plot_region(map_t *map, ushort_t rt_x, ushort_t rt_y, ushort_t regio
 	map_add_region(map, region_cell_ids, n_region_cells);
 }
 
-ushort_t assign_region(map_t *map, ushort_t x, ushort_t y)
+uint16_t assign_region(map_t *map, uint16_t x, uint16_t y)
 {
 
-	Pos_t neighbours[4] = {pos(x, min((int)y + 1, map->height - 1)), pos(x, max((int)y - 1, 0)), pos(min((int)x + 1, map->width - 1), y), pos(max((int)x - 1, 0), y)};
-	uchar_t i = (x + seed_x);
-	for (uchar_t j = 0; j < 4; j++)
+	pos16_t neighbours[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
+	uint8_t i = (x + seed_x);
+	for (uint8_t j = 0; j < 4; j++)
 	{
 		if(map_get_cell(map, neighbours[i%4].x, neighbours[i%4].y)->region_id != 0)
 			return map_get_cell(map, neighbours[i%4].x, neighbours[i%4].y)->region_id;
@@ -628,7 +628,7 @@ ushort_t assign_region(map_t *map, ushort_t x, ushort_t y)
 
 	Stolen from: https://stackoverflow.com/questions/6127503/shuffle-array-in-c
    */
-void shuffle(Pos_t *array, size_t n)
+void shuffle(pos16_t *array, size_t n)
 {
     if (n > 1) 
     {
@@ -636,34 +636,36 @@ void shuffle(Pos_t *array, size_t n)
         for (i = 0; i < n - 1; i++) 
         {
           size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
-          Pos_t t = array[j];
+          pos16_t t = array[j];
           array[j] = array[i];
           array[i] = t;
         }
     }
 }
 
-void mapgen_place_regions(map_t *map, uchar_t avg_cells, uchar_t cell_count_spread, uchar_t minimum_cellsin_rgn)
+void mapgen_place_regions(map_t *map, uint8_t avg_cells, uint8_t cell_count_spread, uint8_t minimum_cells_in_rgn)
 {
 	#define xy_to_i(x, y) x + y * map->width
-	ulong_t n_unclaimed = 0;
-	Pos_t unclaimed[map->height * map->width];
+	uint32_t n_unclaimed = 0;
+	pos16_t unclaimed[map->height * map->width];
 
-	for (uint_t y = 0; y < map->height; y++)
-		for (uint_t x = 0; x < map->width; x++)
+	for (uint16_t y = 0; y < map->height; y++)
+		for (uint16_t x = 0; x < map->width; x++)
 		{
 			cell_t *c_cell = map_get_cell(map, x, y);
 			if(c_cell->env == WATER || c_cell->env == RIVER)
 				continue;
 			if(c_cell->region_id == 0)
 			{
-				unclaimed[n_unclaimed++] = pos(x, y);
+				unclaimed[n_unclaimed++] = pos16(x, y);
 			}
 		}
 
+	map->region_count = 1; // r = 0, reserved
+
 	shuffle(unclaimed, n_unclaimed);
-	ushort_t region_id;
-	for(ulong_t i = 0; i < n_unclaimed; i++)
+	uint16_t region_id;
+	for(uint32_t i = 0; i < n_unclaimed; i++)
 	{
 		if(map_get_cell(map, unclaimed[i].x, unclaimed[i].y)->region_id != 0)
 			continue;
@@ -683,23 +685,23 @@ GetRandomValue((int)avg_cells - (int)cell_count_spread, (int)avg_cells + (int)ce
 
 	
 	/// TODO: Prioritize mergers with physical borders (over only checking absolute distance from center)
-	bool mergers_possible = true;
-	while (mergers_possible)
+	bool mergers_pos16sible = true;
+	while (mergers_pos16sible)
 	{
-		mergers_possible = false;
-		for (ushort_t i = 0; i < map->region_count; i++)
+		mergers_pos16sible = false;
+		for (uint16_t i = 1; i < map->region_count; i++)
 		{
-			if(map->regions[i].cell_count < minimum_cellsin_rgn)
+			if(map->regions[i].cell_count < minimum_cells_in_rgn)
 			{
-				ulong_t first_cell_id = map->regions[i].cell_ids[0];
-				Pos_t region_pos = map_cell_id_to_xy(map, first_cell_id);
-				ushort_t nearest_region = find_nearest_region(map, region_pos.x, region_pos.y);
+				uint32_t first_cell_id = map->regions[i].cell_ids[0];
+				pos16_t region_pos16 = map_cell_id_to_xy(map, first_cell_id);
+				uint16_t nearest_region = find_nearest_region(map, region_pos16.x, region_pos16.y);
 				if(map->regions[i].cell_count + map->regions[nearest_region].cell_count < MAX_REGION_CELL_CAP && nearest_region != 0)
 				{
 					if(map_merge_region_a_with_b(map, i, nearest_region, true))
 					{
-						printf("\n\t Merged [%u]->[%u]", i, nearest_region);
-						mergers_possible = true;
+						printf("\n\t Merged [%u]->[%u] (%u)", i, nearest_region, map->region_count);
+						mergers_pos16sible = true;
 					}
 					else
 						printf("\n\t Failed merge [%u]->[%u]", i, nearest_region);
@@ -708,8 +710,8 @@ GetRandomValue((int)avg_cells - (int)cell_count_spread, (int)avg_cells + (int)ce
 			}
 		}
 	}
-	map_sync_region_ids(map);
-	for (ushort_t i = 0; i < map->region_count; i++)
+	map_sync_region_ids(map, 0);
+	for (uint16_t i = 0; i < map->region_count; i++)
 	{
 		map_print_region(map, i);
 	}

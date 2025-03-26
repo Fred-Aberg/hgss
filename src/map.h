@@ -70,25 +70,25 @@ typedef struct
 {
 	resource_e resource;
 	char icon;
-	uchar_t gold_price;
-	uchar_t production_price;
-	char food_yield;
-	char production_yield;
-	char resource_yield;
+	uint8_t gold_price;
+	uint8_t production_price;
+	int8_t food_yield;
+	int8_t production_yield;
+	int8_t resource_yield;
 	char *name;
 	char *desc;
 }structure_t;
 
 typedef struct
 {
-	uchar_t influence;
-	uchar_t culture_id;
+	uint8_t influence;
+	uint8_t culture_id;
 }culture_influence_t;
 
 typedef struct
 {
-	uchar_t influence;
-	uchar_t religion_id;
+	uint8_t influence;
+	uint8_t religion_id;
 }religion_influence_t;
 
 #define MAX_CLTS_IN_CELL 16
@@ -102,15 +102,15 @@ typedef struct
 
 typedef struct
 {
-	uchar_t pop_lvl;
+	uint8_t pop_lvl;
 	char baked_food_yield;
 	char baked_production_yield;
-	uchar_t structure_id;		// -> bonus yields | -> max 255 buildings
+	uint8_t structure_id;		// -> bonus yields | -> max 255 buildings
 	ownership_e ownership_e;
 	environment_e env;			// -> base yields
 	resource_e resource;		// -> bonus yields
-	ulong_t pop_data_id;
-	ushort_t region_id;			// -> Max 65,535 regions
+	uint32_t pop_data_id;
+	uint16_t region_id;			// -> Max 65,535 regions
 }cell_t;
 
 typedef enum 
@@ -122,39 +122,39 @@ typedef enum
 typedef struct
 {
 	status_type_e type;
-	uchar_t duration;			// 255 -> permanent
+	uint8_t duration;			// 255 -> permanent
 }status_t;
 
 #define MAX_STATUSES 16
 #define MAX_REGION_CELL_CAP 255
 typedef struct
 {
-	uchar_t cell_count;  	// -> max 255 cells for each region
-	uchar_t cell_capacity;	
-	short baked_food_yield;
-	short baked_production_yield;
-	short baked_gold_yield;
-	ulong_t *cell_ids;
+	uint8_t cell_count;  	// -> max 255 cells for each region
+	uint8_t cell_capacity;	
+	int16_t baked_food_yield;
+	int16_t baked_production_yield;
+	int16_t baked_gold_yield;
+	uint32_t *cell_ids;
 	status_t statuses[MAX_STATUSES];
 	administration_t *admin;
 }region_t;
 
 typedef struct
 {
-	uchar_t sea_level;
-	long seed;
+	uint8_t sea_level;
+	int32_t seed;
 	Image heightmap;
 	Image climate_map;
 }mapgen_data_t;
 
 typedef struct
 {
-	uint_t width;
-	uint_t height;
+	uint16_t width;
+	uint16_t height;
 	cell_t *cells;
 	pop_data_t *pop_data;
-	ushort_t region_count;
-	ushort_t region_capacity;
+	uint16_t region_count;
+	uint16_t region_capacity;
 	region_t *regions; // sort by the address of the first cell? middle cell?
 	mapgen_data_t mapg_data;
 	structure_t structures[256];
@@ -162,75 +162,75 @@ typedef struct
 
 void map_env_to_str(char *buf, environment_e env);
 
-Pos_t map_cell_id_to_xy(map_t *map, ulong_t i);
+pos16_t map_cell_id_to_xy(map_t *map, uint32_t i);
 
-void map_print_region(map_t *map, ushort_t region_id);
+void map_print_region(map_t *map, uint16_t region_id);
 
-map_t *map_create_map(uint_t width, uint_t height);
+map_t *map_create_map(uint16_t width, uint16_t height);
 
-cell_t *map_get_cell(map_t *map, ushort_t x, ushort_t y);
+cell_t *map_get_cell(map_t *map, uint16_t x, uint16_t y);
 
-cell_graphics_t map_calc_cell_graphics(cell_t cell);
+cell_graphics_t map_calc_cell_graphics(cell_t cell, int rand);
 
-region_t *map_add_region(map_t *map, ulong_t *cell_ids, uchar_t cell_count);
+region_t *map_add_region(map_t *map, uint32_t *cell_ids, uint8_t cell_count);
 
-void map_sync_region_ids(map_t *map);
+void map_sync_region_ids(map_t *map, uint16_t start_index);
 
-void map_remove_region(map_t *map, ushort_t region_id, bool sync_region_ids);
+void map_remove_region(map_t *map, uint16_t region_id, bool sync_region_ids);
 // 
-void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, ushort_t region_id);
+void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, uint16_t region_id);
 // 
-// void map_rebake_regions(map_t *map, ushort_t *region_id );
+// void map_rebake_regions(map_t *map, uint16_t *region_id );
 // 
 
-void map_rebake_cell_yields(cell_t *cell_array, ulong_t cell_id);
+void map_rebake_cell_yields(cell_t *cell_array, uint32_t cell_id);
 // 
-void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, ulong_t cell_id);
+void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, uint32_t cell_id);
 // 
 void map_rebake_yields(map_t *map);
 
-void map_add_cell_to_region(map_t *map, ushort_t region_id, ulong_t cell_id);
+void map_add_cell_to_region(map_t *map, uint16_t region_id, uint32_t cell_id);
 // 
-void map_add_cells_to_region(map_t *map, ushort_t region_id, ulong_t *cell_ids, uchar_t cell_count);
+void map_add_cells_to_region(map_t *map, uint16_t region_id, uint32_t *cell_ids, uint8_t cell_count);
 
-bool map_merge_region_a_with_b(map_t *map, ushort_t region_id_a, ushort_t region_id_b, bool sync_region_ids);
+bool map_merge_region_a_with_b(map_t *map, uint16_t region_id_a, uint16_t region_id_b, bool sync_region_ids);
 
-// void map_remove_cell_from_region(ushort_t region_id, ulong_t cell_id);
+// void map_remove_cell_from_region(uint16_t region_id, uint32_t cell_id);
 // 
-// void map_remove_cells_from_region(ushort_t region_id, ulong_t *cell_ids);
+// void map_remove_cells_from_region(uint16_t region_id, uint32_t *cell_ids);
 
-ushort_t map_get_region_pop(map_t *map, ushort_t region_id);
+uint16_t map_get_region_pop(map_t *map, uint16_t region_id);
 
-void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char map_font, map_visualisation_e vis, cell_t *selected_cell);
+void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos, char map_font, map_visualisation_e vis, cell_t *selected_cell);
 
-Pos_t map_map_pos_to_grid_pos(map_t *map, Pos_t grid_pos, Pos_t camera_position);
+pos16_t map_map_pos16_to_grid_pos(map_t *map, pos16_t grid_pos, pos16_t camera_position);
 
-Pos_t map_grid_pos_to_map_pos(grid_t *grid, map_t *map, Pos_t grid_pos, Pos_t camera_position);
+pos16_t map_grid_pos_to_map_pos(grid_t *grid, map_t *map, pos16_t grid_pos, pos16_t camera_position);
 
 
 ///  BAKED MAP  ///
 
 typedef struct
 {
-	uchar_t **flag_bytes;
+	uint8_t **flag_bytes;
 	map_t *map;
-	ushort_t b_w;
-	ushort_t b_h;
+	uint16_t b_w;
+	uint16_t b_h;
 }bmap_t;
 
 bmap_t *bmap_create(map_t *map);
 
 void bmap_bake(bmap_t *bmap);
 
-void bmap_rebake(ulong_t i, bmap_t *bmap);
+void bmap_rebake(uint32_t i, bmap_t *bmap);
 
-void bmap_rebake_at(ushort_t x, ushort_t y, bmap_t *bmap);
+void bmap_rebake_at(uint16_t x, uint16_t y, bmap_t *bmap);
 
-void bmap_get_instruction(bmap_t *bmap, ulong_t *i, color8b_t *interval_col, ushort_t *interval_len);
+void bmap_get_instruction(bmap_t *bmap, uint32_t *i, color8b_t *interval_col, uint16_t *interval_len);
 
-ushort_t bmap_get_interval_at(bmap_t *bmap, ushort_t *x, ushort_t y);
+uint16_t bmap_get_interval_at(bmap_t *bmap, uint16_t *x, uint16_t y);
 
 
 /// MAP GEN ///
 
-map_t *map_generate(uint_t width, uint_t height, uchar_t sea_lvl);
+map_t *map_generate(uint16_t width, uint16_t height, uint8_t sea_lvl);

@@ -62,51 +62,51 @@ void map_env_to_str(char *buf, environment_e env)
 	}
 }
 
-// pos(food, prod)
-Pos_t map_env_base_yields(environment_e env)
+// pos16(food, prod)
+pos16_t map_env_base_yields(environment_e env)
 {
 	switch (env)
 	{
 		case WATER:
-			return pos(0, 0);
+			return pos16(0, 0);
 		case RIVER:
-			return pos(8, 2);
+			return pos16(8, 2);
 		case MARSH:
-			return pos(2, 2);
+			return pos16(2, 2);
 		case FLOODPLAINS:
-			return pos(16, 4);
+			return pos16(16, 4);
 		case BEACH:
-			return pos(8, 2);
+			return pos16(8, 2);
 		case URBAN:
-			return pos(0, 20);
+			return pos16(0, 20);
 		case RUINS:
-			return pos(2, 2);
+			return pos16(2, 2);
 		case GRASSLAND:
-			return pos(12, 4);
+			return pos16(12, 4);
 		case WOODLANDS:
-			return pos(6, 8);
+			return pos16(6, 8);
 		case HILLS:
-			return pos(4, 10);
+			return pos16(4, 10);
 		case WOODLAND_HILLS:
-			return pos(2, 8);
+			return pos16(2, 8);
 		case HIGHLANDS:
-			return pos(2, 4);
+			return pos16(2, 4);
 		case HIGHLANDS_WOODS:
-			return pos(0, 6);
+			return pos16(0, 6);
 		case MOUNTAINS:
-			return pos(0, 1);
+			return pos16(0, 1);
 		default:
-			return pos(0, 0);
+			return pos16(0, 0);
 	}
 }
 
-Pos_t map_cell_id_to_xy(map_t *map, ulong_t i)
+pos16_t map_cell_id_to_xy(map_t *map, uint32_t i)
 {
-	ushort_t y = i / map->width;
-	return pos(i - y * map->width, y);
+	uint16_t y = i / map->width;
+	return pos16(i - y * map->width, y);
 }
 
-cell_t *map_get_cell(map_t *map, ushort_t x, ushort_t y)
+cell_t *map_get_cell(map_t *map, uint16_t x, uint16_t y)
 {
 	if(x >= map->width && y >= map->height)
 	{
@@ -117,18 +117,18 @@ cell_t *map_get_cell(map_t *map, ushort_t x, ushort_t y)
     return &map->cells[x + y * map->width];
 }
 
-void map_print_region(map_t *map, ushort_t region_id)
+void map_print_region(map_t *map, uint16_t region_id)
 {
 	printf("\n\nR[%u] c: %u/%u", region_id, map->regions[region_id].cell_count, map->regions[region_id].cell_capacity);
-	for (ushort_t i = 0; i < map->regions[region_id].cell_count; i++)
+	for (uint16_t i = 0; i < map->regions[region_id].cell_count; i++)
 	{
 		cell_t c = map->cells[map->regions[region_id].cell_ids[i]];
-		Pos_t c_pos = map_cell_id_to_xy(map, map->regions[region_id].cell_ids[i]);
-		printf("\n\tr[%u], id[%lu], (%u, %u)", c.region_id, map->regions[region_id].cell_ids[i], c_pos.x, c_pos.y);
+		pos16_t c_pos16 = map_cell_id_to_xy(map, map->regions[region_id].cell_ids[i]);
+		printf("\n\tr[%u], id[%u], (%u, %u)", c.region_id, map->regions[region_id].cell_ids[i], c_pos16.x, c_pos16.y);
 	}
 }
 
-map_t *map_create_map(uint_t width, uint_t height)
+map_t *map_create_map(uint16_t width, uint16_t height)
 {
 	map_t *map = calloc(1, sizeof(map_t));
 	map->width = width;
@@ -146,13 +146,13 @@ int comp_cells_qs(const void *id_a, const void *id_b)
 	return (int)(*(signed long long *)id_a - *(signed long long *)id_b);
 }
 
-llong_t comp_cells(ulong_t a, ulong_t b)
+llong_t comp_cells(uint32_t a, uint32_t b)
 {
 	return (int)((signed long long)a - (signed long long)b);
 }
 
 #define REALLOC_PERCENTAGE_INCREASE 1.5f
-region_t *map_add_region(map_t *map, ulong_t *cell_ids, uchar_t cell_count)
+region_t *map_add_region(map_t *map, uint32_t *cell_ids, uint8_t cell_count)
 {
 	// if(cell_count == 0)
 		// return NULL;
@@ -165,17 +165,17 @@ region_t *map_add_region(map_t *map, ulong_t *cell_ids, uchar_t cell_count)
 	
 	region_t region;
 	region.cell_count = cell_count;
-	region.cell_capacity = cell_count;
-	if(cell_count != 0)
+	region.cell_capacity = MAX_REGION_CELL_CAP - 1;
+	region.cell_ids = calloc(region.cell_capacity, sizeof(uint32_t));
+	/*if(cell_count != 0)
 	{
-		region.cell_ids = calloc(cell_count, sizeof(ulong_t));
-		memcpy(region.cell_ids, cell_ids, cell_count * sizeof(ulong_t));
-		qsort(region.cell_ids, cell_count, sizeof(ulong_t), comp_cells_qs);
+		memcpy(region.cell_ids, cell_ids, cell_count * sizeof(uint32_t));
+		qsort(region.cell_ids, cell_count, sizeof(uint32_t), comp_cells_qs);
 		
-		// ulong_t first_id = region.cell_ids[0];
+		// uint32_t first_id = region.cell_ids[0];
 		// 
 		// llong_t comparison;
-		// for (ushort_t i = 0; i < map->region_count; i++)
+		// for (uint16_t i = 0; i < map->region_count; i++)
 		// {
 			// comparison = comp_cells(first_id, map->regions[i].cell_ids[0]);
 			// if(comparison > 0)
@@ -188,47 +188,47 @@ region_t *map_add_region(map_t *map, ulong_t *cell_ids, uchar_t cell_count)
 				// return &map->regions[i];
 			// }
 		// }
-	}
+	}*/
 
-	// Add emoty region -> append
+	// Add empty region -> append
 	map->regions[map->region_count] = region;
 	map->region_count++;
 	return &map->regions[map->region_count - 1];
 }
 
-void map_sync_region_ids(map_t *map)
+void map_sync_region_ids(map_t *map, uint16_t start_index)
 {
-	for (ushort_t i = 0; i < map->region_count; i++)
-		for (ushort_t j = 0; j < map->regions[i].cell_count; j++)
+	for (uint16_t i = start_index; i < map->region_count; i++)
+		for (uint16_t j = 0; j < map->regions[i].cell_count; j++)
 		{
 			map->cells[map->regions[i].cell_ids[j]].region_id = i;
 		}
 }
 
-void map_remove_region(map_t *map, ushort_t region_id, bool sync_region_ids)
+void map_remove_region(map_t *map, uint16_t region_id, bool sync_region_ids)
 {
 	free(map->regions[region_id].cell_ids);
 	memmove(&map->regions[region_id], &map->regions[region_id + 1], (map->region_count - region_id) * sizeof(region_t));
 	map->region_count--;
 
 	if(sync_region_ids)
-		map_sync_region_ids(map);
+		map_sync_region_ids(map, region_id);
 }
 
-void map_rebake_cell_yields(cell_t *cell_array, ulong_t cell_id)
+void map_rebake_cell_yields(cell_t *cell_array, uint32_t cell_id)
 {
-	ushort_t pop_multiplier = (cell_array[cell_id].pop_lvl>>2);
+	uint16_t pop_multiplier = (cell_array[cell_id].pop_lvl>>2);
 	
-	Pos_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
+	pos16_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
 	cell_array[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
 	cell_array[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
 }
 
-void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, ulong_t cell_id)
+void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, uint32_t cell_id)
 {
 	float pop_multiplier = 1.0f + (cell_array[cell_id].pop_lvl / 255.0f);
 	
-	Pos_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
+	pos16_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
 	cell_array[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
 	cell_array[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
 	
@@ -239,16 +239,16 @@ void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array
 	region_array[cell_array[cell_id].region_id].baked_gold_yield += 20 * pop_multiplier;
 }
 
-void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, ushort_t region_id)
+void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, uint16_t region_id)
 {
 	region_array[region_id].baked_food_yield = 0;
 	region_array[region_id].baked_production_yield = 0;
 	region_array[region_id].baked_gold_yield = 0;
 
-	ulong_t *cell_ids = region_array[region_id].cell_ids;
+	uint32_t *cell_ids = region_array[region_id].cell_ids;
 	cell_t c;
 
-	for(uchar_t i = 0; i < region_array[region_id].cell_count; i++)
+	for(uint8_t i = 0; i < region_array[region_id].cell_count; i++)
 	{
 		c = cell_array[cell_ids[i]];
 		
@@ -260,19 +260,19 @@ void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, ushort
 
 void map_rebake_yields(map_t *map)
 {
-	ulong_t n_cells = map->width * map->height;
-	for(ulong_t i = 0; i < n_cells; i++)
+	uint32_t n_cells = map->width * map->height;
+	for(uint32_t i = 0; i < n_cells; i++)
 	{
 		map_rebake_cell_yields(map->cells, i);
 	}
 
-	for(ushort_t i = 0; i < map->region_count; i++)
+	for(uint16_t i = 0; i < map->region_count; i++)
 	{
 		map_rebake_region_yields(map->regions, map->cells, i);
 	}
 }
 
-void map_add_cell_to_region(map_t *map, ushort_t region_id, ulong_t cell_id)
+void map_add_cell_to_region(map_t *map, uint16_t region_id, uint32_t cell_id)
 {
 	region_t *region = &map->regions[region_id];
 	if(region->cell_count == 255)
@@ -283,13 +283,13 @@ void map_add_cell_to_region(map_t *map, ushort_t region_id, ulong_t cell_id)
 	if (region->cell_capacity <= region->cell_count)
 	{
 		region->cell_capacity = min(region->cell_capacity * REALLOC_PERCENTAGE_INCREASE + 1, MAX_REGION_CELL_CAP);
-		region->cell_ids = (ulong_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(ulong_t)));
+		region->cell_ids = (uint32_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(uint32_t)));
 	}
 	region->cell_ids[region->cell_count] = cell_id;
 	region->cell_count++;
 }
 
-void map_add_cells_to_region(map_t *map, ushort_t region_id, ulong_t *cell_ids, uchar_t cell_count)
+void map_add_cells_to_region(map_t *map, uint16_t region_id, uint32_t *cell_ids, uint8_t cell_count)
 {
 	region_t *region = &map->regions[region_id];
 	if((int)region->cell_count + (int)cell_count >= MAX_REGION_CELL_CAP)
@@ -300,10 +300,10 @@ void map_add_cells_to_region(map_t *map, ushort_t region_id, ulong_t *cell_ids, 
 	if (region->cell_capacity <= region->cell_count + cell_count)
 	{
 		region->cell_capacity = min(region->cell_capacity * REALLOC_PERCENTAGE_INCREASE + 1, MAX_REGION_CELL_CAP);
-		region->cell_ids = (ulong_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(ulong_t)));
+		region->cell_ids = (uint32_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(uint32_t)));
 	}
 
-	for (ushort_t i = 0; i < cell_count; i++)
+	for (uint16_t i = 0; i < cell_count; i++)
 	{
 		map->cells[cell_ids[i]].region_id = region_id; // set region incase it hasn't already been done
 		region->cell_ids[region->cell_count] = cell_ids[i];
@@ -311,11 +311,13 @@ void map_add_cells_to_region(map_t *map, ushort_t region_id, ulong_t *cell_ids, 
 	}
 }
 
-bool map_merge_region_a_with_b(map_t *map, ushort_t region_id_a, ushort_t region_id_b, bool sync_region_ids)
+bool map_merge_region_a_with_b(map_t *map, uint16_t region_id_a, uint16_t region_id_b, bool sync_region_ids)
 {
+	if(region_id_a == 0 || region_id_b == 0)
+		return false;
 	region_t *region_a = &map->regions[region_id_a];
 	region_t *region_b = &map->regions[region_id_b];
-	if((int)region_a->cell_count + (int)region_b->cell_count >= MAX_REGION_CELL_CAP)
+	if((int)region_a->cell_count + (int)region_b->cell_count >= MAX_REGION_CELL_CAP - 1)
 	{
 		WARNINGF("Regions [%u] & [%u] Cannot be merged! cell counts to high.", region_id_a, region_id_b)
 		return false;
@@ -324,15 +326,15 @@ bool map_merge_region_a_with_b(map_t *map, ushort_t region_id_a, ushort_t region
 	// if(region_b->cell_capacity < MAX_REGION_CELL_CAP)
 	// {
 		// region_b->cell_capacity = MAX_REGION_CELL_CAP;
-		// region_b->cell_ids = (ulong_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(ulong_t)));
+		// region_b->cell_ids = (uint32_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(uint32_t)));
 	// }
 	if (region_b->cell_capacity < region_a->cell_count + region_b->cell_count)
 	{
 		region_b->cell_capacity += region_a->cell_count;
-		region_b->cell_ids = (ulong_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(ulong_t)));
+		region_b->cell_ids = (uint32_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(uint32_t)));
 	}
 
-	for (ushort_t i = 0; i < region_a->cell_count; i++)
+	for (uint16_t i = 0; i < region_a->cell_count; i++)
 	{
 		map->cells[region_a->cell_ids[i]].region_id = region_id_b; // set region incase it hasn't already been done
 		region_b->cell_ids[region_b->cell_count] = region_a->cell_ids[i];
@@ -342,42 +344,42 @@ bool map_merge_region_a_with_b(map_t *map, ushort_t region_id_a, ushort_t region
 	map_remove_region(map, region_id_a, sync_region_ids);
 }
 
-void map_remove_cell_from_region(ushort_t region_id, ulong_t cell_id);
+void map_remove_cell_from_region(uint16_t region_id, uint32_t cell_id);
 
-void map_remove_cells_from_region(ushort_t region_id, ulong_t *cell_ids);
+void map_remove_cells_from_region(uint16_t region_id, uint32_t *cell_ids);
 
-void map_remove_cells_from_region(ushort_t region_id, ulong_t *cell_id);
+void map_remove_cells_from_region(uint16_t region_id, uint32_t *cell_id);
 
-ushort_t map_get_region_pop(map_t *map, ushort_t region_id)
+uint16_t map_get_region_pop(map_t *map, uint16_t region_id)
 {
-	ushort_t tot_pop = 0;
+	uint16_t tot_pop = 0;
 	region_t region = map->regions[region_id];
 
-	for (ushort_t i = 0; i < region.cell_count; i++)
+	for (uint16_t i = 0; i < region.cell_count; i++)
 	{
 		map->cells[region.cell_ids[i]].region_id = region_id;
-		tot_pop += (ushort_t)map->cells[region.cell_ids[i]].pop_lvl;
+		tot_pop += (uint16_t)map->cells[region.cell_ids[i]].pop_lvl;
 	}
 
 	return tot_pop;
 }
 
-color8b_t region_id_to_col(ushort_t n_regions, ushort_t region_id)
+color8b_t region_id_to_col(uint16_t n_regions, uint16_t region_id)
 {
 	if(region_id == 0)
 		return BLACK8B;
 
 	return ((float)region_id / (float)n_regions) * 255;
-	// uchar_t r = (((char *)&region_id)[0] * 3) % 8;
-	// uchar_t g = (((char *)&region_id)[0] * 7) % 8;
-	// uchar_t b = (((char *)&region_id)[0] * 5) % 4;
+	// uint8_t r = (((char *)&region_id)[0] * 3) % 8;
+	// uint8_t g = (((char *)&region_id)[0] * 7) % 8;
+	// uint8_t b = (((char *)&region_id)[0] * 5) % 4;
 	// color8b_t col = col8bt(r, g, b);
 	// return (col == 0)? col8bt(0, 0, 1) : col;
 }
 
 #define cg(icon, bg_col, char_col) (cell_graphics_t){bg_col, char_col, icon}
 
-cell_graphics_t map_calc_cell_graphics(cell_t cell)
+cell_graphics_t map_calc_cell_graphics(cell_t cell, int rand)
 {
 	const color8b_t WATER_A = col8bt(0, 1, 3);
 	const color8b_t WATER_B = col8bt(0, 2, 3);
@@ -407,7 +409,6 @@ cell_graphics_t map_calc_cell_graphics(cell_t cell)
 	const color8b_t URBAN_A = col8bt(4, 4, 2);
 	const color8b_t URBAN_B = col8bt(2, 2, 1);
 		
-	bool rand = (long)(&cell) % 2 == 0;
 	switch (cell.env)
 	{
 		case WATER:
@@ -457,22 +458,22 @@ cell_graphics_t map_calc_cell_graphics(cell_t cell)
 #define col_char(c) tl_Color_to_color8b((Color){c, c, c, c})
 #define p_val(image, x, y) GetImageColor(image, x, y).r
 
-bool border_cell(map_t *map, ushort_t region_id, ushort_t x, ushort_t y)
+bool border_cell(map_t *map, uint16_t region_id, uint16_t x, uint16_t y)
 {
 	if(region_id == 0)
 		return false;
-	Pos_t neighbours[4] = {pos(x, min((int)y + 1, map->height - 1)), pos(x, max((int)y - 1, 0)), pos(min((int)x + 1, map->width - 1), y), pos(max((int)x - 1, 0), y)};
+	pos16_t neighbours[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
 
-	for (uchar_t i = 0; i < 4; i++)
+	for (uint8_t i = 0; i < 4; i++)
 		if(map_get_cell(map, neighbours[i].x, neighbours[i].y)->region_id != region_id)
 			return true;
 	return false;
 }
 
-void draw_map_default(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, uchar_t g_x1, uchar_t g_y1, ushort_t map_x0, ushort_t map_y0, char map_font, cell_t *selected_cell,
+void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint8_t g_x1, uint8_t g_y1, uint16_t map_x0, uint16_t map_y0, char map_font, cell_t *selected_cell,
 						color8b_t t_delta_col, color8b_t t_delta_col_invert)
 {
-	ushort_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
 	
 	int map_display_width = g_x1 - g_x0;
 	int map_display_height = g_y1 - g_y0;
@@ -480,22 +481,19 @@ void draw_map_default(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, ucha
 	cell_graphics_t cg;
 	cell_t *c_cell;
 	const color8b_t WATER_A = col8bt(0, 1, 3);
+	int t = GetTime();
+	bool rand = t & 1;
 	
 	for (int _y = 0; _y < map_display_height; _y++)
 		{
 			color8b_t c_interval_bg;
-			ushort_t c_interval_x0 = 0;
-			ushort_t c_interval_x1 = 0;
+			uint16_t c_interval_x0 = 0;
+			uint16_t c_interval_x1 = 0;
 			for (int _x = 0; _x < map_display_width; _x++)
 			{
 				c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
-	
 				
-				if(c_cell->env == WATER || c_cell->env == RIVER)
-					cg = map_calc_cell_graphics(*c_cell);
-				
-
-				cg = map_calc_cell_graphics(*c_cell);
+				cg = map_calc_cell_graphics(*c_cell, rand);
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
 				else if(border_cell(map, c_cell->region_id, map_x0 + _x,  map_y0 + _y))
@@ -535,16 +533,16 @@ void draw_map_default(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, ucha
 			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
 				for (int _x = 0; _x < map_display_width; _x++)
 				{
-					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y));
+					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y), rand);
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
 		}
 }
 
-void draw_map_terrain(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, uchar_t g_x1, uchar_t g_y1, ushort_t map_x0, ushort_t map_y0, char map_font, cell_t *selected_cell,
+void draw_map_terrain(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint8_t g_x1, uint8_t g_y1, uint16_t map_x0, uint16_t map_y0, char map_font, cell_t *selected_cell,
 						color8b_t t_delta_col, color8b_t t_delta_col_invert)
 {
-	ushort_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
 	
 	int map_display_width = g_x1 - g_x0;
 	int map_display_height = g_y1 - g_y0;
@@ -552,22 +550,20 @@ void draw_map_terrain(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, ucha
 	cell_graphics_t cg;
 	cell_t *c_cell;
 	const color8b_t WATER_A = col8bt(0, 1, 3);
+	int t = GetTime();
+	bool rand = t & 1;
 	
 	for (int _y = 0; _y < map_display_height; _y++)
 		{
 			color8b_t c_interval_bg;
-			ushort_t c_interval_x0 = 0;
-			ushort_t c_interval_x1 = 0;
+			uint16_t c_interval_x0 = 0;
+			uint16_t c_interval_x1 = 0;
 			for (int _x = 0; _x < map_display_width; _x++)
 			{
 				c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
-	
-				
-				if(c_cell->env == WATER || c_cell->env == RIVER)
-					cg = map_calc_cell_graphics(*c_cell);
 				
 
-				cg = map_calc_cell_graphics(*c_cell);
+				cg = map_calc_cell_graphics(*c_cell, rand);
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
 				else if(selected_region_id != 0 && selected_region_id == c_cell->region_id)
@@ -603,45 +599,45 @@ void draw_map_terrain(grid_t *grid, map_t *map, uchar_t g_x0, uchar_t g_y0, ucha
 			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
 				for (int _x = 0; _x < map_display_width; _x++)
 				{
-					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y));
+					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y), rand);
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
 		}
 }
 
 // Draw at the same time as rebaking? Looping through the cells only once?
-void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char map_font, map_visualisation_e vis, cell_t *selected_cell)
+void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, char map_font, map_visualisation_e vis, cell_t *selected_cell)
 {
 	
-	ushort_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
 
-	uchar_t t_char = ((sin(4 * GetTime()) + 1.0f)/2.0f) * 255.0f;
+	uint8_t t_char = ((sin(4 * GetTime()) + 1.0f)/2.0f) * 255.0f;
 	color8b_t t_delta_col = col_char(t_char);
 	color8b_t t_delta_col_invert = col_char(255 - t_char);
 	
 
-	Pos_t grid_dimensions = tl_grid_get_dimensions(grid);
+	pos16_t grid_dimensions = tl_grid_get_dimensions(grid);
 	int g_cam_x = (int)grid_dimensions.x / 2;
 	int g_cam_y = (int)grid_dimensions.y / 2;
 
 
-	int g_x0 = max(g_cam_x - cam_map_pos.x, 0);
-	int g_y0 = max(g_cam_y - cam_map_pos.y, 0);
-	int g_x1 = min(g_cam_x + (map->width - cam_map_pos.x), grid_dimensions.x);
-	int g_y1 = min(g_cam_y + (map->height - cam_map_pos.y), grid_dimensions.y);
+	int g_x0 = max(g_cam_x - cam_map_pos16.x, 0);
+	int g_y0 = max(g_cam_y - cam_map_pos16.y, 0);
+	int g_x1 = min(g_cam_x + (map->width - cam_map_pos16.x), grid_dimensions.x);
+	int g_y1 = min(g_cam_y + (map->height - cam_map_pos16.y), grid_dimensions.y);
 
-	// int cam_up = min(cam_map_pos.y, g_cam_y);
-	// int cam_down = min(map->height - cam_map_pos.y, g_cam_y);
-	// int cam_right = min(map->width - cam_map_pos.x, g_cam_x);
+	// int cam_up = min(cam_map_pos16.y, g_cam_y);
+	// int cam_down = min(map->height - cam_map_pos16.y, g_cam_y);
+	// int cam_right = min(map->width - cam_map_pos16.x, g_cam_x);
 	// int cam_left = g_cam_x - g_x0;
 	
-	int map_x0 = cam_map_pos.x - (g_cam_x - g_x0);
-	int map_y0 = cam_map_pos.y - (g_cam_y - g_y0);
+	int map_x0 = cam_map_pos16.x - (g_cam_x - g_x0);
+	int map_y0 = cam_map_pos16.y - (g_cam_y - g_y0);
 
-	// int map_x0 = max(0, (int)cam_map_pos.x - g_cam_x);
-	// int map_y0 = max(0, (int)cam_map_pos.y - g_cam_y);
-	// int map_x1 = min(map->width, cam_map_pos.x + g_cam_x);
-	// int map_y1 = min(map->height, cam_map_pos.y + g_cam_y);
+	// int map_x0 = max(0, (int)cam_map_pos16.x - g_cam_x);
+	// int map_y0 = max(0, (int)cam_map_pos16.y - g_cam_y);
+	// int map_x1 = min(map->width, cam_map_pos16.x + g_cam_x);
+	// int map_y1 = min(map->height, cam_map_pos16.y + g_cam_y);
 
 	const color8b_t WATER_A = col8bt(0, 1, 3);
 	tl_draw_rect_bg(grid,g_x0, g_y0, g_x1, g_y1, WATER_A);
@@ -669,15 +665,15 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char ma
 	for (int _y = 0; _y < map_display_height; _y++)
 	{
 		color8b_t c_interval_bg;
-		ushort_t c_interval_x0 = 0;
-		ushort_t c_interval_x1 = 0;
+		uint16_t c_interval_x0 = 0;
+		uint16_t c_interval_x1 = 0;
 		for (int _x = 0; _x < map_display_width; _x++)
 		{
 			c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
 
 			
 			if(c_cell->env == WATER || c_cell->env == RIVER)
-				cg = map_calc_cell_graphics(*c_cell);
+				cg = map_calc_cell_graphics(*c_cell, t_delta_col + 4388552 + _x * _y);
 			else if(vis == POPULATION)
 			{
 				cg = cg('\0', col_pop(c_cell->pop_lvl), BLACK8B);
@@ -729,32 +725,29 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, Pos_t cam_map_pos, char ma
 			for (int _x = 0; _x < map_display_width; _x++)
 				if(grid->tile_p_w >= SYMBOL_CULL_P_W)
 				{
-					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y));
+					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y), t_delta_col + 4388552 + _x * _y);
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
 	}
-	tl_plot_smbl_w_bg(grid, g_cam_x, g_cam_y, 'O', BLACK8B, WHITE8B, 1);
-	tl_plot_smbl_w_bg(grid, g_x0, g_y0, 'X', BLACK8B, WHITE8B, 1);
-	tl_plot_smbl_w_bg(grid, g_x1 - 1, g_y1 - 1, 'X', BLACK8B, WHITE8B, 1);
 }
 
-Pos_t map_grid_pos_to_map_pos(grid_t *grid, map_t *map, Pos_t grid_pos, Pos_t camera_position)
+pos16_t map_grid_pos_to_map_pos(grid_t *grid, map_t *map, pos16_t grid_pos16, pos16_t camera_pos16ition)
 {
-	Pos_t grid_dimensions = tl_grid_get_dimensions(grid);
+	pos16_t grid_dimensions = tl_grid_get_dimensions(grid);
 	int g_cam_x = (int)grid_dimensions.x / 2;
 	int g_cam_y = (int)grid_dimensions.y / 2;
-	return pos(clamp(0, (int)camera_position.x - (g_cam_x - (int)grid_pos.x), map->width - 1), 
-			   clamp(0, (int)camera_position.y - (g_cam_y - (int)grid_pos.y), map->height - 1));
+	return pos16(clamp(0, (int)camera_pos16ition.x - (g_cam_x - (int)grid_pos16.x), map->width - 1), 
+			   clamp(0, (int)camera_pos16ition.y - (g_cam_y - (int)grid_pos16.y), map->height - 1));
 }
 
-// Pos_t map_map_pos_to_grid_pos(map_t *map, Pos_t grid_pos, Pos_t camera_position)
+// pos16_t map_map_pos16_to_grid_pos16(map_t *map, pos16_t grid_pos16, pos16_t camera_pos16ition)
 // {
 	// 
 // }
 
 /*
 
-char set_bit(char byte, uint_t bit, bool bitv)
+char set_bit(char byte, uint16_t bit, bool bitv)
 {
 	if(bitv)
 		return byte | (1<<bit);
@@ -772,20 +765,20 @@ bmap_t *bmap_create(map_t *map)
 	bmap->b_h = map->height;
 	
 	bmap->flag_bytes = calloc(bmap->b_h, sizeof(char *));
-	for (ushort_t y = 0; y < bmap->b_h; y++)
+	for (uint16_t y = 0; y < bmap->b_h; y++)
 		bmap->flag_bytes[y] = calloc(bmap->b_w, sizeof(1));
 	return bmap;
 }
 
 void bmap_bake(bmap_t *bmap)
 {
-	ushort_t c_bmap_byte = 0;
-	ushort_t c_bit = 0;
-	uchar_t c_byte;
-	for (ushort_t _y = 0; _y < bmap->map->height; _y++)
+	uint16_t c_bmap_byte = 0;
+	uint16_t c_bit = 0;
+	uint8_t c_byte;
+	for (uint16_t _y = 0; _y < bmap->map->height; _y++)
 		{
 			color8b_t c_interval_bg = map_calc_cell_graphics(*map_get_cell(bmap->map, 0, _y)).bg_col;
-			for (ushort_t _x = 1; _x < bmap->map->height; _x++)
+			for (uint16_t _x = 1; _x < bmap->map->height; _x++)
 			{
 				if(c_bit == 8)
 				{
@@ -807,20 +800,20 @@ void bmap_bake(bmap_t *bmap)
 		}
 }
 
-void bmap_rebake(ulong_t i, bmap_t *bmap);
+void bmap_rebake(uint32_t i, bmap_t *bmap);
 
-void bmap_rebake_at(ushort_t x, ushort_t y, bmap_t *bmap);
+void bmap_rebake_at(uint16_t x, uint16_t y, bmap_t *bmap);
 
-void bmap_get_instruction(bmap_t *bmap, ulong_t *i, color8b_t *interval_col, ushort_t *interval_len);
+void bmap_get_instruction(bmap_t *bmap, uint32_t *i, color8b_t *interval_col, uint16_t *interval_len);
 
-ushort_t bmap_get_interval_at(bmap_t *bmap, ushort_t *x, ushort_t y)
+uint16_t bmap_get_interval_at(bmap_t *bmap, uint16_t *x, uint16_t y)
 {
-	ushort_t interval = 0;
+	uint16_t interval = 0;
 	bmap->flag_bytes[y][(*x / 8)]
-	for (ushort_t byte_x = *x / 8; byte_x < bmap->b_w)
+	for (uint16_t byte_x = *x / 8; byte_x < bmap->b_w)
 	{
 		if(bmap->flag_bytes[y][*x])
 	}
-	ushort_t cell_index = *x + y * map->width;
+	uint16_t cell_index = *x + y * map->width;
 }
 */

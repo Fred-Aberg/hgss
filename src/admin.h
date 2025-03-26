@@ -31,27 +31,27 @@ typedef struct
 	bool military_allowed;
 	motivation_t motivation;
 	focus_e focus;
-	uchar_t parent_extraction_rate;
-	uchar_t loyalty_to_parent;
-	uchar_t sub_admin_count;
-	uchar_t sub_admin_capacity;
+	uint8_t parent_extraction_rate;
+	uint8_t loyalty_to_parent;
+	uint8_t sub_admin_count;
+	uint8_t sub_admin_capacity;
 
-	uchar_t capital_tax;
-	short b_production_pt;
-	short b_food_pt;
-	short b_gold_pt;
+	uint8_t capital_tax;
+	int16_t b_production_pt;
+	int16_t b_food_pt;
+	int16_t b_gold_pt;
 	
-	short production_pt;
-	short food_pt;
-	short gold_pt;
+	int16_t production_pt;
+	int16_t food_pt;
+	int16_t gold_pt;
 	
-	short production_stored;
-	short food_stored;
-	short gold_stored;
+	int16_t production_stored;
+	int16_t food_stored;
+	int16_t gold_stored;
 	
-	ushort_t region_count;
-	ushort_t region_capacity;
-	ushort_t *region_ids;
+	uint16_t region_count;
+	uint16_t region_capacity;
+	uint16_t *region_ids;
 	struct administration_t *child_admins;
 	struct administration_t *parent_admin;
 }administration_t;
