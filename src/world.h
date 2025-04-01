@@ -98,7 +98,7 @@ typedef struct
 typedef struct
 {
 	bool is_active;	// !is_active -> can be written over
-	admin_t admin;
+	realm_t realm;
 }realm_entry_t;
 
 typedef struct
@@ -114,9 +114,13 @@ typedef struct
 	culture_tree_t culture_tree;
 	religion_relation_matrix_t *religion_relation_matrix;
 	culture_relation_matrix_t *culture_relation_matrix;
-	map_t w_map;
+	map_t *w_map;
 }world_t;
 
-void w_add_realm(world_t *w, ui32_list_t cell_id_list);
+world_t *w_create(uint16_t init_realm_capacity, map_t *map);
+
+uint16_t w_add_realm(world_t *w, ui32_list_t cell_id_list);
 
 void w_remove_realm(world_t *w, uint16_t rlm_i);
+
+bool make_ai_move(uint16_t realm_id); // false if AI isn't finnished, true if AI is finnished

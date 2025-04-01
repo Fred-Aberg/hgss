@@ -13,14 +13,14 @@
 #define MIN_CELLS_IN_REGION 10
 
 // Divide seed into two 16 bit numbers
-#define seed_x ((int *)(&map->mapg_data.seed))[0] 
-#define seed_y ((int *)(&map->mapg_data.seed))[1] 
+#define seed_x ((int16_t *)(&map->mapg_data.seed))[0] 
+#define seed_y ((int16_t *)(&map->mapg_data.seed))[1] 
 
 // Divide seed into four 8 bit numbers
-#define seed_b1 ((char *)(&map->mapg_data.seed))[0]
-#define seed_b2 ((char *)(&map->mapg_data.seed))[1]
-#define seed_b3 ((char *)(&map->mapg_data.seed))[2]
-#define seed_b4 ((char *)(&map->mapg_data.seed))[3]
+#define seed_b1 ((int8_t *)(&map->mapg_data.seed))[0]
+#define seed_b2 ((int8_t *)(&map->mapg_data.seed))[1]
+#define seed_b3 ((int8_t *)(&map->mapg_data.seed))[2]
+#define seed_b4 ((int8_t *)(&map->mapg_data.seed))[3]
 
 #define val(v) c(v,v,v)
 #define p_val(image, x, y) GetImageColor(image, x, y).r
@@ -29,7 +29,7 @@ bool watery(cell_t *c)
 {
 	return c->env == WATER || c->env == RIVER;
 }
-
+/*
 pos16_t find_nearest_water_source(map_t *map, uint16_t x, uint16_t y)
 {
 	uint16_t x0;
@@ -61,6 +61,7 @@ pos16_t find_nearest_water_source(map_t *map, uint16_t x, uint16_t y)
 
 	return pos16(0,0); // No rivers for (0,0) lmao
 }
+
 
 uint16_t find_nearest_region(map_t *map, uint16_t x, uint16_t y)
 {
@@ -102,7 +103,7 @@ uint16_t find_nearest_region(map_t *map, uint16_t x, uint16_t y)
 
 	return 0; // No region found
 }
-
+*/
 Image *qsort_heightmap;
 
 // elev. comparison function
@@ -117,7 +118,7 @@ uint16_t dst(uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y)
 }
 
 uint16_t n_rivers = 0;
-bool plot_river_3(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y, uint16_t parent_x, uint16_t parent_y, 
+bool plot_river(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y, uint16_t parent_x, uint16_t parent_y, 
 					uint16_t length, uint16_t id, uint16_t max_len)
 {	
 	if(x < 3 || y < 3 || x > map->width-3 || y > map->height-3)
@@ -130,16 +131,16 @@ bool plot_river_3(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, 
 		return false;
 	}
 
-	int neighbours = (map_get_cell(map, x + 1, y)->region_id == id) + (map_get_cell(map, x - 1, y)->region_id == id) +
-					 (map_get_cell(map, x, y + 1)->region_id == id) + (map_get_cell(map, x, y - 1)->region_id == id);
+	int neighbours = (map_get_cell_p(map, pos16(x + 1, y))->pop_lvl == id) + (map_get_cell_p(map, pos16(x - 1, y))->pop_lvl == id) +
+					 (map_get_cell_p(map, pos16(x, y + 1))->pop_lvl == id) + (map_get_cell_p(map, pos16(x, y - 1))->pop_lvl == id);
 
 	if (neighbours > 1)
 		return false;
 
 	int forgiveness = 3;
 	
-	cell_t *c_cell = map_get_cell(map, x, y);
-	c_cell->region_id = id;
+	cell_t *c_cell = map_get_cell_p(map, pos16(x, y));
+	c_cell->pop_lvl = id;
 
 	if(c_cell->env == WATER) // Ocean reached
 		return true;
@@ -164,12 +165,12 @@ bool plot_river_3(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, 
 		
 		if(river_cnds[i].x == parent_x && river_cnds[i].y == parent_y)
 			continue;
-		if(map_get_cell(map, river_cnds[i].x, river_cnds[i].y)->region_id == id)
+		if(map_get_cell_p(map, pos16(river_cnds[i].x, river_cnds[i].y))->pop_lvl == id)
 			continue;
 
 		if(cnd_elevation <= c_elevation + forgiveness)
 		{
-			if(plot_river_3(map, origin_x, origin_y, river_cnds[i].x, river_cnds[i].y, x, y, length + 1, id, max_len))
+			if(plot_river(map, origin_x, origin_y, river_cnds[i].x, river_cnds[i].y, x, y, length + 1, id, max_len))
 			{
 				c_cell->env = RIVER;
 				c_cell->pop_lvl = 0;
@@ -177,7 +178,7 @@ bool plot_river_3(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, 
 			}
 			else
 			{
-				map_get_cell(map, river_cnds[i].x, river_cnds[i].y)->region_id = id;
+				map_get_cell_p(map, pos16(river_cnds[i].x, river_cnds[i].y))->pop_lvl = id;
 			}
 		}
 	}
@@ -189,109 +190,11 @@ bool plot_river_3(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, 
 	// return true;
 	if(length > max_len) // too long mate
 	{
-		map_get_cell(map, x, y)->env = WATER;
-		map_get_cell(map, x + 1, y)->env = WATER;
-		map_get_cell(map, x - 1, y)->env = WATER;
-		map_get_cell(map, x, y + 1)->env = WATER;
+		map_get_cell_p(map, pos16(x, y))->env = WATER;
+		map_get_cell_p(map, pos16(x + 1, y))->env = WATER;
+		map_get_cell_p(map, pos16(x - 1, y))->env = WATER;
+		map_get_cell_p(map, pos16(x, y + 1))->env = WATER;
 		return true;
-	}
-	return false;
-}
-
-#define PATH_ARRAY_LEN 512
-bool in_path(pos16_t *parent_path, uint16_t x, uint16_t y) // check adjacency?
-{
-	for (uint16_t i = 0; i < PATH_ARRAY_LEN; i++)
-		if(parent_path[i].x == x && parent_path[i].y == y)
-			return true;
-	return false;
-}
-
-bool plot_river_2(map_t *map, uint16_t origin_x, uint16_t origin_y, uint16_t x, uint16_t y, uint16_t parent_x, uint16_t parent_y, 
-					uint16_t length, pos16_t *parent_path, uint16_t path_count)
-{		
-	if(in_path(parent_path, x, y))
-		return false;
-
-	uint16_t distance = dst(origin_x, origin_y, x, y);
-	if(length > distance * 4) // Loop / meandering detection
-	{
-		puts("\nKilled by distance");
-		return false; 
-	}
-	
-	if(length > PATH_ARRAY_LEN) // too long mate
-	{
-		map_get_cell(map, x, y)->env = WATER;
-		map_get_cell(map, x + 1, y)->env = WATER;
-		map_get_cell(map, x - 1, y)->env = WATER;
-		map_get_cell(map, x, y + 1)->env = WATER;
-		return true;
-	}
-
-	int forgiveness = 2;
-	
-	cell_t *c_cell = map_get_cell(map, x, y);
-
-	if(c_cell->env == WATER) // Ocean reached
-		return true;
-
-	if(c_cell->env == RIVER) // Join or create lake ?
-		return true;
-	
-	pos16_t c_path[PATH_ARRAY_LEN];
-	memcpy(&c_path[0], &parent_path[0], PATH_ARRAY_LEN * sizeof(pos16_t));
-	c_path[path_count % PATH_ARRAY_LEN] = pos16(x, y);
-	path_count++;
-
-	if(parent_x != x)
-	{
-		c_path[path_count % PATH_ARRAY_LEN] = pos16(x + ((int)parent_x - (int)x), y + 1);
-		path_count++;	
-		c_path[path_count % PATH_ARRAY_LEN] = pos16(x + ((int)parent_x - (int)x), y - 1);
-		path_count++;	
-	}
-	else
-	{
-		c_path[path_count % PATH_ARRAY_LEN] = pos16(x + 1, y + ((int)parent_y - (int)y));
-		path_count++;	
-		c_path[path_count % PATH_ARRAY_LEN] = pos16(x - 1, y + ((int)parent_y - (int)y));
-		path_count++;
-	}
-	
-	
-	pos16_t river_cnds[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
-	
-	uint8_t c_elevation = p_val(map->mapg_data.heightmap, x, y);
-	
-	qsort_heightmap = &map->mapg_data.heightmap;
-	qsort(river_cnds, 4, sizeof(pos16_t), compare_elev);
-
-	uint8_t cnd_elevation;
-
-	printf("\n\tP[%u/%u]\nL: %u Dst: %u (%u, %u) -> %u", path_count % PATH_ARRAY_LEN, PATH_ARRAY_LEN, length, distance, x, y, c_elevation);
-
-	for (int i = 0; i < 4; i++)
-	{
-		cnd_elevation = p_val(map->mapg_data.heightmap, river_cnds[i].x, river_cnds[i].y);
-		
-		if(river_cnds[i].x == parent_x && river_cnds[i].y == parent_y)
-			continue;
-
-		if(cnd_elevation <= c_elevation + forgiveness)
-		{
-			if(plot_river_2(map, origin_x, origin_y, river_cnds[i].x, river_cnds[i].y, x, y, length + 1, &c_path[0], path_count))
-			{
-				c_cell->env = RIVER;
-				c_cell->pop_lvl = 0;
-				return true;
-			}
-			else
-			{
-				c_path[path_count % PATH_ARRAY_LEN] = pos16(river_cnds[i].x, river_cnds[i].y);
-				path_count++;
-			}
-		}
 	}
 	return false;
 }
@@ -300,7 +203,7 @@ void mapgen_plot_river(map_t *map, uint16_t x, uint16_t y)
 {
 	// pos16_t path[PATH_ARRAY_LEN];
 	// memset(&path[0], 0, PATH_ARRAY_LEN * sizeof(pos16_t)); // Null path array
-	plot_river_3(map,x, y, x, y, x, y, 0, n_rivers++, 50);
+	plot_river(map,x, y, x, y, x, y, 0, n_rivers++, 50);
 }
 
 void mapgen_place_rivers(map_t *map)
@@ -309,13 +212,13 @@ void mapgen_place_rivers(map_t *map)
 		for (uint16_t x = 0; x < map->width; x++)
 		{
 			int rand = GetRandomValue(0, 10000);
-			if (map_get_cell(map, x, y)->env == MOUNTAINS && rand > 9999)
+			if (map_get_cell_p(map, pos16(x, y))->env == MOUNTAINS && rand > 9999)
 				mapgen_plot_river(map, x, y);
-			else if (map_get_cell(map, x, y)->env == HIGHLANDS && rand > 9998)
+			else if (map_get_cell_p(map, pos16(x, y))->env == HIGHLANDS && rand > 9998)
 				mapgen_plot_river(map, x, y);
-			else if ((map_get_cell(map, x, y)->env == HILLS || map_get_cell(map, x, y)->env == WOODLAND_HILLS) && rand > 9997)
+			else if ((map_get_cell_p(map, pos16(x, y))->env == HILLS || map_get_cell_p(map, pos16(x, y))->env == WOODLAND_HILLS) && rand > 9997)
 				mapgen_plot_river(map, x, y);
-			else if ((map_get_cell(map, x, y)->env == GRASSLAND || map_get_cell(map, x, y)->env == WOODLANDS) && rand > 9996)
+			else if ((map_get_cell_p(map, pos16(x, y))->env == GRASSLAND || map_get_cell_p(map, pos16(x, y))->env == WOODLANDS) && rand > 9996)
 				mapgen_plot_river(map, x, y);
 		}
 }
@@ -371,7 +274,7 @@ void mapgen_populate_map(map_t *map, float amp, float randomness, float r_scale)
 		for (uint16_t x = 0; x < map->width; x++)
 		{
 			uint8_t cell_height = p_val(map->mapg_data.heightmap, x, y);
-			cell_t *c_cell = map_get_cell(map, x, y);
+			cell_t *c_cell = map_get_cell_p(map, pos16(x, y));
 			
 			c_cell->pop_lvl = (cell_height > map->mapg_data.sea_level) * clamp(0, 255 - cell_height - map->mapg_data.sea_level, 255) * amp;
 			c_cell->pop_lvl = clamp(0, c_cell->pop_lvl * ((((int)p_val(perlin_pop, x, y) + 255) * randomness) / 255.0f), 255);
@@ -393,7 +296,7 @@ void mapgen_update_map_environments_from_heightmap(map_t *map)
 		for (uint16_t x = 0; x < map->width; x++)
 		{
 			uint8_t cell_height = p_val(map->mapg_data.heightmap, x, y);
-			cell_t *c_cell = map_get_cell(map, x, y);
+			cell_t *c_cell = map_get_cell_p(map, pos16(x, y));
 			
 			uint8_t wood_val = p_val(perlin_woods, x, y);
 
@@ -473,6 +376,8 @@ map_t *mapgen_gen_from_heightmap(Image heightmap, uint8_t sea_level, long seed)
 	return map;
 }
 
+
+/*
 void mapgen_clear_region_ids(map_t *map)
 {
 	map->region_count = 0;
@@ -621,13 +526,13 @@ uint16_t assign_region(map_t *map, uint16_t x, uint16_t y)
 }
 
 
-/* Arrange the N elements of ARRAY in random order.
-   Only effective if N is much smaller than RAND_MAX;
-   if this may not be the case, use a better random
-   number generator. 
-
-	Stolen from: https://stackoverflow.com/questions/6127503/shuffle-array-in-c
-   */
+   // Arrange the N elements of ARRAY in random order.
+   // Only effective if N is much smaller than RAND_MAX;
+   // if this may not be the case, use a better random
+   // number generator.
+   
+   // Stolen from: https://stackoverflow.com/questions/6127503/shuffle-array-in-c
+   
 void shuffle(pos16_t *array, size_t n)
 {
     if (n > 1) 
@@ -716,4 +621,4 @@ GetRandomValue((int)avg_cells - (int)cell_count_spread, (int)avg_cells + (int)ce
 		map_print_region(map, i);
 	}
 }
-
+*/

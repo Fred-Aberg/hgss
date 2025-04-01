@@ -147,11 +147,11 @@ map_t *map_create_map(uint16_t width, uint16_t height);
 cell_t *map_get_cell_p(map_t *map, pos16_t p);
 cell_t *map_get_cell_i(map_t *map, uint32_t i);
 
-cell_t *map_get_pop_data_p(map_t *map, pos16_t p);
-cell_t *map_get_pop_data_i(map_t *map, uint32_t i);
+pop_data_t *map_get_pop_data_p(map_t *map, pos16_t p);
+pop_data_t *map_get_pop_data_i(map_t *map, uint32_t i);
 
-cell_t *map_get_cell_gfx_p(map_t *map, pos16_t p);
-cell_t *map_get_cell_gfx_i(map_t *map, uint32_t i);
+cell_graphics_t *map_get_cell_gfx_p(map_t *map, pos16_t p);
+cell_graphics_t *map_get_cell_gfx_i(map_t *map, uint32_t i);
 
 uint32_t map_p_to_i(map_t *map, pos16_t p);
 pos16_t map_i_to_p(map_t *map, uint32_t i);
@@ -160,7 +160,9 @@ pos16_t map_i_to_p(map_t *map, uint32_t i);
 
 cell_graphics_t map_calc_cell_graphics(cell_t cell, int rand);
 
-void map_rebake_cell_yields(cell_t *cell_array, uint32_t cell_id);
+void map_rebake_cell_yields(map_t *map, uint32_t cell_id);
+
+void map_rebake_cell_gfx(map_t *map, uint32_t cell_id);
 
 /// Operate on all cells
 

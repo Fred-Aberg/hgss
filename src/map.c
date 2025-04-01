@@ -100,32 +100,38 @@ pos16_t map_env_base_yields(environment_e env)
 	}
 }
 
-pos16_t map_cell_id_to_xy(map_t *map, uint32_t i)
+uint32_t map_p_to_i(map_t *map, pos16_t p)
+{
+	return p.x + p.y * map->width;
+}
+
+
+pos16_t map_i_to_p(map_t *map, uint32_t i)
 {
 	uint16_t y = i / map->width;
 	return pos16(i - y * map->width, y);
 }
 
-cell_t *map_get_cell(map_t *map, uint16_t x, uint16_t y)
+cell_t *map_get_cell_p(map_t *map, pos16_t p)
 {
-	if(x >= map->width && y >= map->height)
+	if(p.x >= map->width && p.y >= map->height)
 	{
     fprintf(stderr, "map.c: get cell overflow (x,y)=(%u, %u) [w,h]=[%u, %u]\n", 
-    		x, y, map->width, map->height);
+    		p.x, p.y, map->width, map->height);
     assert(false); // kys	
 	}
-    return &map->cells[x + y * map->width];
+    return &map->cells[p.x + p.y * map->width];
 }
 
-void map_print_region(map_t *map, uint16_t region_id)
+cell_t *map_get_cell_i(map_t *map, uint32_t i)
 {
-	printf("\n\nR[%u] c: %u/%u", region_id, map->regions[region_id].cell_count, map->regions[region_id].cell_capacity);
-	for (uint16_t i = 0; i < map->regions[region_id].cell_count; i++)
+	if(i < map->width * map->height)
 	{
-		cell_t c = map->cells[map->regions[region_id].cell_ids[i]];
-		pos16_t c_pos16 = map_cell_id_to_xy(map, map->regions[region_id].cell_ids[i]);
-		printf("\n\tr[%u], id[%u], (%u, %u)", c.region_id, map->regions[region_id].cell_ids[i], c_pos16.x, c_pos16.y);
+    fprintf(stderr, "map.c: get cell overflow i=%u [w,h]=[%u, %u]\n", 
+    		i, map->width, map->height);
+    assert(false); // kys	
 	}
+    return &map->cells[i];
 }
 
 map_t *map_create_map(uint16_t width, uint16_t height)
@@ -134,128 +140,36 @@ map_t *map_create_map(uint16_t width, uint16_t height)
 	map->width = width;
 	map->height = height;
 	map->cells = calloc(width*height, sizeof(cell_t));
-	map->region_count = 1;
-	map->region_capacity = 10;
-	map->regions = calloc(10, sizeof(region_t));
+	map->pop_data = calloc(width*height, sizeof(pop_data_t));
+	map->b_cell_graphics = calloc(width*height, sizeof(cell_graphics_t));
 
 	return map;
 }
 
-int comp_cells_qs(const void *id_a, const void *id_b)
-{
-	return (int)(*(signed long long *)id_a - *(signed long long *)id_b);
-}
+// int comp_cells_qs(const void *id_a, const void *id_b)
+// {
+	// return (int)(*(signed long long *)id_a - *(signed long long *)id_b);
+// }
+// 
+// llong_t comp_cells(uint32_t a, uint32_t b)
+// {
+	// return (int)((signed long long)a - (signed long long)b);
+// }
+// 
+// #define REALLOC_PERCENTAGE_INCREASE 1.5f
 
-llong_t comp_cells(uint32_t a, uint32_t b)
+void map_rebake_cell_yields(map_t *map, uint32_t cell_id)
 {
-	return (int)((signed long long)a - (signed long long)b);
-}
-
-#define REALLOC_PERCENTAGE_INCREASE 1.5f
-region_t *map_add_region(map_t *map, uint32_t *cell_ids, uint8_t cell_count)
-{
-	// if(cell_count == 0)
-		// return NULL;
+	uint16_t pop_multiplier = (map->cells[cell_id].pop_lvl>>2);
 	
-	if (map->region_capacity <= map->region_count)
-	{
-		map->region_capacity = map->region_capacity * REALLOC_PERCENTAGE_INCREASE + 1; 
-		map->regions = (region_t *)realloc(map->regions, (map->region_capacity * sizeof(region_t)));
-	}
-	
-	region_t region;
-	region.cell_count = cell_count;
-	region.cell_capacity = MAX_REGION_CELL_CAP - 1;
-	region.cell_ids = calloc(region.cell_capacity, sizeof(uint32_t));
-	/*if(cell_count != 0)
-	{
-		memcpy(region.cell_ids, cell_ids, cell_count * sizeof(uint32_t));
-		qsort(region.cell_ids, cell_count, sizeof(uint32_t), comp_cells_qs);
-		
-		// uint32_t first_id = region.cell_ids[0];
-		// 
-		// llong_t comparison;
-		// for (uint16_t i = 0; i < map->region_count; i++)
-		// {
-			// comparison = comp_cells(first_id, map->regions[i].cell_ids[0]);
-			// if(comparison > 0)
-			// {
-				// // Move all regions from and including i one step forward
-				// memmove(&map->regions[i + 1], &map->regions[i], (map->region_count - i) * sizeof(region_t));
-				// 
-				// map->regions[i] = region;
-				// map->region_count++;
-				// return &map->regions[i];
-			// }
-		// }
-	}*/
-
-	// Add empty region -> append
-	map->regions[map->region_count] = region;
-	map->region_count++;
-	return &map->regions[map->region_count - 1];
+	pos16_t base_env_yields = map_env_base_yields(map->cells[cell_id].env);
+	map->cells[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
+	map->cells[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
 }
 
-void map_sync_region_ids(map_t *map, uint16_t start_index)
+void map_rebake_cell_gfx(map_t *map, uint32_t cell_id)
 {
-	for (uint16_t i = start_index; i < map->region_count; i++)
-		for (uint16_t j = 0; j < map->regions[i].cell_count; j++)
-		{
-			map->cells[map->regions[i].cell_ids[j]].region_id = i;
-		}
-}
-
-void map_remove_region(map_t *map, uint16_t region_id, bool sync_region_ids)
-{
-	free(map->regions[region_id].cell_ids);
-	memmove(&map->regions[region_id], &map->regions[region_id + 1], (map->region_count - region_id) * sizeof(region_t));
-	map->region_count--;
-
-	if(sync_region_ids)
-		map_sync_region_ids(map, region_id);
-}
-
-void map_rebake_cell_yields(cell_t *cell_array, uint32_t cell_id)
-{
-	uint16_t pop_multiplier = (cell_array[cell_id].pop_lvl>>2);
-	
-	pos16_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
-	cell_array[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
-	cell_array[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
-}
-
-void map_rebake_cell_yields_propagate(region_t *region_array, cell_t *cell_array, uint32_t cell_id)
-{
-	float pop_multiplier = 1.0f + (cell_array[cell_id].pop_lvl / 255.0f);
-	
-	pos16_t base_env_yields = map_env_base_yields(cell_array[cell_id].env);
-	cell_array[cell_id].baked_food_yield = base_env_yields.x * pop_multiplier;
-	cell_array[cell_id].baked_production_yield = base_env_yields.y * pop_multiplier;
-	
-
-	// TODO: Subtract consumption
-	region_array[cell_array[cell_id].region_id].baked_food_yield += base_env_yields.x * pop_multiplier;
-	region_array[cell_array[cell_id].region_id].baked_production_yield += base_env_yields.y * pop_multiplier;
-	region_array[cell_array[cell_id].region_id].baked_gold_yield += 20 * pop_multiplier;
-}
-
-void map_rebake_region_yields(region_t *region_array, cell_t *cell_array, uint16_t region_id)
-{
-	region_array[region_id].baked_food_yield = 0;
-	region_array[region_id].baked_production_yield = 0;
-	region_array[region_id].baked_gold_yield = 0;
-
-	uint32_t *cell_ids = region_array[region_id].cell_ids;
-	cell_t c;
-
-	for(uint8_t i = 0; i < region_array[region_id].cell_count; i++)
-	{
-		c = cell_array[cell_ids[i]];
-		
-		region_array[region_id].baked_food_yield += (short)c.baked_food_yield - (c.pop_lvl>>4);
-		region_array[region_id].baked_production_yield += (short)c.baked_production_yield - (c.pop_lvl>>4);
-		region_array[region_id].baked_gold_yield += (c.pop_lvl>>4);	
-	}
+	map->b_cell_graphics[cell_id] = map_calc_cell_graphics(map->cells[cell_id], 0);
 }
 
 void map_rebake_yields(map_t *map)
@@ -263,119 +177,25 @@ void map_rebake_yields(map_t *map)
 	uint32_t n_cells = map->width * map->height;
 	for(uint32_t i = 0; i < n_cells; i++)
 	{
-		map_rebake_cell_yields(map->cells, i);
-	}
-
-	for(uint16_t i = 0; i < map->region_count; i++)
-	{
-		map_rebake_region_yields(map->regions, map->cells, i);
+		map_rebake_cell_yields(map, i);
 	}
 }
 
-void map_add_cell_to_region(map_t *map, uint16_t region_id, uint32_t cell_id)
+void map_rebake_graphics(map_t *map)
 {
-	region_t *region = &map->regions[region_id];
-	if(region->cell_count == 255)
+	uint32_t n_cells = map->width * map->height;
+	for(uint32_t i = 0; i < n_cells; i++)
 	{
-		WARNINGF("Region [%u] is at cell capacity!", region_id)
-		return;
+		map_rebake_cell_gfx(map, i);
 	}
-	if (region->cell_capacity <= region->cell_count)
-	{
-		region->cell_capacity = min(region->cell_capacity * REALLOC_PERCENTAGE_INCREASE + 1, MAX_REGION_CELL_CAP);
-		region->cell_ids = (uint32_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(uint32_t)));
-	}
-	region->cell_ids[region->cell_count] = cell_id;
-	region->cell_count++;
 }
 
-void map_add_cells_to_region(map_t *map, uint16_t region_id, uint32_t *cell_ids, uint8_t cell_count)
+void map_rebake_cells(map_t *map)
 {
-	region_t *region = &map->regions[region_id];
-	if((int)region->cell_count + (int)cell_count >= MAX_REGION_CELL_CAP)
-	{
-		WARNINGF("Region [%u] is at cell capacity!", region_id)
-		return;
-	}
-	if (region->cell_capacity <= region->cell_count + cell_count)
-	{
-		region->cell_capacity = min(region->cell_capacity * REALLOC_PERCENTAGE_INCREASE + 1, MAX_REGION_CELL_CAP);
-		region->cell_ids = (uint32_t *)realloc(region->cell_ids, (region->cell_capacity * sizeof(uint32_t)));
-	}
-
-	for (uint16_t i = 0; i < cell_count; i++)
-	{
-		map->cells[cell_ids[i]].region_id = region_id; // set region incase it hasn't already been done
-		region->cell_ids[region->cell_count] = cell_ids[i];
-		region->cell_count++;
-	}
+	map_rebake_yields(map);
+	map_rebake_graphics(map);
 }
 
-bool map_merge_region_a_with_b(map_t *map, uint16_t region_id_a, uint16_t region_id_b, bool sync_region_ids)
-{
-	if(region_id_a == 0 || region_id_b == 0)
-		return false;
-	region_t *region_a = &map->regions[region_id_a];
-	region_t *region_b = &map->regions[region_id_b];
-	if((int)region_a->cell_count + (int)region_b->cell_count >= MAX_REGION_CELL_CAP - 1)
-	{
-		WARNINGF("Regions [%u] & [%u] Cannot be merged! cell counts to high.", region_id_a, region_id_b)
-		return false;
-	}
-
-	// if(region_b->cell_capacity < MAX_REGION_CELL_CAP)
-	// {
-		// region_b->cell_capacity = MAX_REGION_CELL_CAP;
-		// region_b->cell_ids = (uint32_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(uint32_t)));
-	// }
-	if (region_b->cell_capacity < region_a->cell_count + region_b->cell_count)
-	{
-		region_b->cell_capacity += region_a->cell_count;
-		region_b->cell_ids = (uint32_t *)realloc(region_b->cell_ids, (region_b->cell_capacity * sizeof(uint32_t)));
-	}
-
-	for (uint16_t i = 0; i < region_a->cell_count; i++)
-	{
-		map->cells[region_a->cell_ids[i]].region_id = region_id_b; // set region incase it hasn't already been done
-		region_b->cell_ids[region_b->cell_count] = region_a->cell_ids[i];
-		region_b->cell_count++;
-	}
-
-	map_remove_region(map, region_id_a, sync_region_ids);
-}
-
-void map_remove_cell_from_region(uint16_t region_id, uint32_t cell_id);
-
-void map_remove_cells_from_region(uint16_t region_id, uint32_t *cell_ids);
-
-void map_remove_cells_from_region(uint16_t region_id, uint32_t *cell_id);
-
-uint16_t map_get_region_pop(map_t *map, uint16_t region_id)
-{
-	uint16_t tot_pop = 0;
-	region_t region = map->regions[region_id];
-
-	for (uint16_t i = 0; i < region.cell_count; i++)
-	{
-		map->cells[region.cell_ids[i]].region_id = region_id;
-		tot_pop += (uint16_t)map->cells[region.cell_ids[i]].pop_lvl;
-	}
-
-	return tot_pop;
-}
-
-color8b_t region_id_to_col(uint16_t n_regions, uint16_t region_id)
-{
-	if(region_id == 0)
-		return BLACK8B;
-
-	return ((float)region_id / (float)n_regions) * 255;
-	// uint8_t r = (((char *)&region_id)[0] * 3) % 8;
-	// uint8_t g = (((char *)&region_id)[0] * 7) % 8;
-	// uint8_t b = (((char *)&region_id)[0] * 5) % 4;
-	// color8b_t col = col8bt(r, g, b);
-	// return (col == 0)? col8bt(0, 0, 1) : col;
-}
 
 #define cg(icon, bg_col, char_col) (cell_graphics_t){bg_col, char_col, icon}
 
@@ -458,22 +278,22 @@ cell_graphics_t map_calc_cell_graphics(cell_t cell, int rand)
 #define col_char(c) tl_Color_to_color8b((Color){c, c, c, c})
 #define p_val(image, x, y) GetImageColor(image, x, y).r
 
-bool border_cell(map_t *map, uint16_t region_id, uint16_t x, uint16_t y)
-{
-	if(region_id == 0)
-		return false;
-	pos16_t neighbours[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
-
-	for (uint8_t i = 0; i < 4; i++)
-		if(map_get_cell(map, neighbours[i].x, neighbours[i].y)->region_id != region_id)
-			return true;
-	return false;
-}
+// bool border_cell(map_t *map, uint16_t region_id, uint16_t x, uint16_t y)
+// {
+	// if(region_id == 0)
+		// return false;
+	// pos16_t neighbours[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
+// 
+	// for (uint8_t i = 0; i < 4; i++)
+		// if(map_get_cell(map, neighbours[i].x, neighbours[i].y)->region_id != region_id)
+			// return true;
+	// return false;
+// }
 
 void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint8_t g_x1, uint8_t g_y1, uint16_t map_x0, uint16_t map_y0, char map_font, cell_t *selected_cell,
 						color8b_t t_delta_col, color8b_t t_delta_col_invert)
 {
-	uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	// uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
 	
 	int map_display_width = g_x1 - g_x0;
 	int map_display_height = g_y1 - g_y0;
@@ -491,19 +311,12 @@ void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 			uint16_t c_interval_x1 = 0;
 			for (int _x = 0; _x < map_display_width; _x++)
 			{
-				c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
+				c_cell = map_get_cell_p(map, pos16(map_x0 + _x, map_y0 + _y));
 				
-				cg = map_calc_cell_graphics(*c_cell, rand);
+				cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
+
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
-				else if(border_cell(map, c_cell->region_id, map_x0 + _x,  map_y0 + _y))
-				{
-					if(c_cell->region_id != selected_region_id)
-						cg.bg_col = region_id_to_col(map->region_count, c_cell->region_id);
-					else if(selected_region_id != 0)
-						cg.bg_col = t_delta_col;
-				}
-					
 				if(_x == 0)
 				{
 					c_interval_bg = cg.bg_col;
@@ -533,7 +346,11 @@ void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
 				for (int _x = 0; _x < map_display_width; _x++)
 				{
-					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y), rand);
+					cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
+					if(cg.icon == 'A' || cg.icon == '1') // Sea or River
+						cg.icon += rand;
+					
+					
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
 		}
@@ -542,7 +359,7 @@ void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 void draw_map_terrain(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint8_t g_x1, uint8_t g_y1, uint16_t map_x0, uint16_t map_y0, char map_font, cell_t *selected_cell,
 						color8b_t t_delta_col, color8b_t t_delta_col_invert)
 {
-	uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	// uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
 	
 	int map_display_width = g_x1 - g_x0;
 	int map_display_height = g_y1 - g_y0;
@@ -560,15 +377,14 @@ void draw_map_terrain(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 			uint16_t c_interval_x1 = 0;
 			for (int _x = 0; _x < map_display_width; _x++)
 			{
-				c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
+				// c_cell = map_get_cell_p(map, pos16(map_x0 + _x, map_y0 + _y));
 				
 
-				cg = map_calc_cell_graphics(*c_cell, rand);
+				cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
-				else if(selected_region_id != 0 && selected_region_id == c_cell->region_id)
-					cg.bg_col = t_delta_col;
-				
+				// else if(selected_region_id != 0 && selected_region_id == c_cell->region_id)
+					// cg.bg_col = t_delta_col;
 					
 				if(_x == 0)
 				{
@@ -599,7 +415,9 @@ void draw_map_terrain(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
 				for (int _x = 0; _x < map_display_width; _x++)
 				{
-					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y), rand);
+					cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
+					if(cg.icon == 'A' || cg.icon == '1') // Sea or River
+						cg.icon += rand;
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
 		}
@@ -609,7 +427,7 @@ void draw_map_terrain(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, char map_font, map_visualisation_e vis, cell_t *selected_cell)
 {
 	
-	uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
+	// uint16_t selected_region_id = (selected_cell != NULL)? selected_cell->region_id : 0;
 
 	uint8_t t_char = ((sin(4 * GetTime()) + 1.0f)/2.0f) * 255.0f;
 	color8b_t t_delta_col = col_char(t_char);
@@ -650,12 +468,16 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 		case TERRAIN:
 		draw_map_terrain(grid, map, g_x0, g_y0, g_x1, g_y1, map_x0, map_y0, map_font, selected_cell, t_delta_col, t_delta_col_invert);
 		return;
+		default:
+			break;
 	}
 	
 
 	int map_display_width = g_x1 - g_x0;
 	int map_display_height = g_y1 - g_y0;
 
+	int t = GetTime();
+	bool rand = t & 1;
 	
 	cell_graphics_t cg;
 	tl_draw_rect_bg(grid,g_x0, g_y0, g_x1, g_y1, WATER_A);
@@ -669,34 +491,29 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 		uint16_t c_interval_x1 = 0;
 		for (int _x = 0; _x < map_display_width; _x++)
 		{
-			c_cell = map_get_cell(map, map_x0 + _x, map_y0 + _y);
 
 			
 			if(c_cell->env == WATER || c_cell->env == RIVER)
-				cg = map_calc_cell_graphics(*c_cell, t_delta_col + 4388552 + _x * _y);
+			{
+				cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
+				if(cg.icon == 'A' || cg.icon == '1') // Sea or River
+					cg.icon += rand;
+			}
 			else if(vis == POPULATION)
 			{
 				cg = cg('\0', col_pop(c_cell->pop_lvl), BLACK8B);
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
-				else if(c_cell->region_id == selected_region_id)
-					cg.bg_col = t_delta_col;
-			}
-			else if(vis == REGIONS)
-			{
-				cg = cg('\0', region_id_to_col(map->region_count, c_cell->region_id), BLACK8B);
-				if(c_cell == selected_cell)
-					cg.bg_col = t_delta_col_invert;
-				else if(c_cell->region_id == selected_region_id)
-					cg.bg_col = t_delta_col;
+				// else if(c_cell->region_id == selected_region_id)
+					// cg.bg_col = t_delta_col;
 			}
 			else if(vis == HEIGHTMAP)
 			{
 				cg = cg('\0', col_hmap(GetImageColor(map->mapg_data.heightmap, map_x0 + _x, map_y0 + _y).r), BLACK8B);
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
-				else if(c_cell->region_id == selected_region_id)
-					cg.bg_col = t_delta_col;
+				// else if(c_cell->region_id == selected_region_id)
+					// cg.bg_col = t_delta_col;
 			}
 			if(_x == 0)
 			{
@@ -725,7 +542,9 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 			for (int _x = 0; _x < map_display_width; _x++)
 				if(grid->tile_p_w >= SYMBOL_CULL_P_W)
 				{
-					cg = map_calc_cell_graphics(*map_get_cell(map, map_x0 + _x, map_y0 + _y), t_delta_col + 4388552 + _x * _y);
+					cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
+					if(cg.icon == 'A' || cg.icon == '1') // Sea or River
+						cg.icon += rand;
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
 	}
@@ -739,81 +558,3 @@ pos16_t map_grid_pos_to_map_pos(grid_t *grid, map_t *map, pos16_t grid_pos16, po
 	return pos16(clamp(0, (int)camera_pos16ition.x - (g_cam_x - (int)grid_pos16.x), map->width - 1), 
 			   clamp(0, (int)camera_pos16ition.y - (g_cam_y - (int)grid_pos16.y), map->height - 1));
 }
-
-// pos16_t map_map_pos16_to_grid_pos16(map_t *map, pos16_t grid_pos16, pos16_t camera_pos16ition)
-// {
-	// 
-// }
-
-/*
-
-char set_bit(char byte, uint16_t bit, bool bitv)
-{
-	if(bitv)
-		return byte | (1<<bit);
-	else
-		return byte ^ (1<<bit);
-}
-
-#define set_byte(bmap, byte_x, y, b) bmap->flag_bytes[y][byte_x] = b
-
-bmap_t *bmap_create(map_t *map)
-{
-	bmap_t *bmap = calloc(1, sizeof(bmap_t));
-	bmap->map = map;
-	bmap->b_w = (map->width / 8) + 1;
-	bmap->b_h = map->height;
-	
-	bmap->flag_bytes = calloc(bmap->b_h, sizeof(char *));
-	for (uint16_t y = 0; y < bmap->b_h; y++)
-		bmap->flag_bytes[y] = calloc(bmap->b_w, sizeof(1));
-	return bmap;
-}
-
-void bmap_bake(bmap_t *bmap)
-{
-	uint16_t c_bmap_byte = 0;
-	uint16_t c_bit = 0;
-	uint8_t c_byte;
-	for (uint16_t _y = 0; _y < bmap->map->height; _y++)
-		{
-			color8b_t c_interval_bg = map_calc_cell_graphics(*map_get_cell(bmap->map, 0, _y)).bg_col;
-			for (uint16_t _x = 1; _x < bmap->map->height; _x++)
-			{
-				if(c_bit == 8)
-				{
-					set_byte(bmap, _y, c_bmap_byte, c_byte);
-					c_bit = 0; 
-					c_bmap_byte++;
-				}
-				color8b_t new_bg = map_calc_cell_graphics(*map_get_cell(bmap->map, _x, _y)).bg_col;
-
-				if(c_interval_bg == new_bg)
-					c_byte = set_bit(c_byte, c_bit, 0);
-				else
-				{
-					c_byte = set_bit(c_byte, c_bit, 1);
-					c_interval_bg = new_bg;
-				}
-				c_bit++;
-			}
-		}
-}
-
-void bmap_rebake(uint32_t i, bmap_t *bmap);
-
-void bmap_rebake_at(uint16_t x, uint16_t y, bmap_t *bmap);
-
-void bmap_get_instruction(bmap_t *bmap, uint32_t *i, color8b_t *interval_col, uint16_t *interval_len);
-
-uint16_t bmap_get_interval_at(bmap_t *bmap, uint16_t *x, uint16_t y)
-{
-	uint16_t interval = 0;
-	bmap->flag_bytes[y][(*x / 8)]
-	for (uint16_t byte_x = *x / 8; byte_x < bmap->b_w)
-	{
-		if(bmap->flag_bytes[y][*x])
-	}
-	uint16_t cell_index = *x + y * map->width;
-}
-*/

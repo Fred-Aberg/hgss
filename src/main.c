@@ -7,6 +7,9 @@
 #include "c_codebase/src/ascui.h"
 #include "map.h"
 #include "mapgen.h"
+#include "world.h"
+
+#include "main_ui.c"
 
 #define DEF_COLOR (Color){20, 40, 29, 255}
 
@@ -19,148 +22,14 @@ void printbincharpad(char c)
     putchar('\n');
 }
 
-void dropdown_button(void *domain, void *function_data, cursor_t *cursor)
+
+typedef struct
 {
-	if (!cursor->left_button_pressed)
-		return;
-	container_t *container = *(container_t **)domain;
-	container->open = !container->open;
-}
-
-environment_e selected_env;
-
-void env_tool_button(void *domain, void *function_data, cursor_t *cursor)
-{
-	if (!cursor->left_button_pressed)
-		return;
-	selected_env = (environment_e)function_data;
-}
-
-map_visualisation_e map_vis = DEFAULT;
-
-void map_vis_button(void *domain, void *function_data, cursor_t *cursor)
-{
-	if (!cursor->left_button_pressed)
-		return;
-	map_vis = (map_visualisation_e)function_data;
-}
-
-
-void woodify_cell(map_t *map, uint16_t x, uint16_t y)
-{
-	cell_t *c = map_get_cell(map, x, y);
-
-	switch (c->env)
-	{
-		case FLOODPLAINS:
-			c->env = MARSH;
-			break;
-		case GRASSLAND:
-			c->env = WOODLANDS;
-			break;
-		case HILLS:
-			c->env = WOODLAND_HILLS;
-			break;
-		case HIGHLANDS:
-			c->env = HIGHLANDS_WOODS;
-			break;
-		default:
-		return;
-	}
-}
-
-void unwoodify_cell(map_t *map, uint16_t x, uint16_t y)
-{
-	cell_t *c = map_get_cell(map, x, y);
-
-	switch (c->env)
-	{
-		case MARSH:
-			c->env = FLOODPLAINS;
-			break;
-		case WOODLANDS:
-			c->env = GRASSLAND;
-			break;
-		case WOODLAND_HILLS:
-			c->env = HILLS;
-			break;
-		case HIGHLANDS_WOODS:
-			c->env = HIGHLANDS;
-			break;
-		default:
-		return;
-	}
-}
-
-
-container_t *top_container;
-container_t *subgrid_container;
-container_t *tool_box_container;
-
-
-
-container_t *river_container;
-container_t *cut_woods_container;
-container_t *plot_region_container;
-
-#define CELL_INFO_BUF_LEN 256
-container_t *cell_info_text;
-cell_t *selected_cell = NULL;
-char cell_info_buf[CELL_INFO_BUF_LEN];
-
-void cell_to_str(map_t *map, cell_t *c, uint16_t x, uint16_t y)
-{
-	char env_buf[32];
-	map_env_to_str(env_buf, c->env);
-	sprintf(cell_info_buf, "[%u, %u]: %s\n  Pop: %u\n  \b002\a070{\b:%u\a \b002\a640|\b:%u\a\n  \
-	Region ID: %u\n    Pop: %u\n    \b002\a070{\b:%u\a \b002\a640|\b:%u\a \b002\a770}\b:%d\a\n    No. Cells: %u", 
-	x, y, env_buf, c->pop_lvl, c->baked_food_yield, c->baked_production_yield, 
-	c->region_id, map_get_region_pop(map, c->region_id), map->regions[c->region_id].baked_food_yield, map->regions[c->region_id].baked_production_yield,
-	map->regions[c->region_id].baked_gold_yield, map->regions[c->region_id].cell_count);
-}
-
-
-void main_ui()
-{
-	container_style_t s_0 = style(0, col8bt(0,0,0), col8bt(5,0,2), col8bt(7,7,3), '=', '|', '+');
-	container_style_t s_1 = style(1, col8bt(2,0,1), col8bt(2,0,1), col8bt(7,7,3), '-', '|', 'O');
-	container_style_t s_2 = style(1, col8bt(2,0,1), col8bt(2,0,1), col8bt(7,0,3), '-', '|', 'O');
-	container_style_t s_3 = style(1, col8bt(2,1,1), col8bt(2,1,1), col8bt(7,1,3), '=', '|', '=');
-	top_container = ascui_container(true, PERCENTAGE, 100, VERTICAL, 2,
-		 ascui_box(true, TILES, 20, HORIZONTAL, s_0, 2, 
-			ascui_button(true, TILES, 3, strlen("Env. Tool Box >"), "Env. Tool Box >", s_1, dropdown_button, &tool_box_container, NULL),
-			tool_box_container = ascui_container(true, TILES, 1, HORIZONTAL, 12, 
-				river_container = ascui_button(true, TILES, 3, strlen("River gen"), "River gen", s_2, NULL, NULL, NULL),
-				ascui_button(true, TILES, 3, strlen("Plant Woods"), "Plant Woods", s_2, env_tool_button, NULL, (void *)WOODLANDS),
-				cut_woods_container = ascui_button(true, TILES, 3, strlen("Cut Woods"), "Cut Woods", s_2, NULL, NULL, NULL),
-				plot_region_container = ascui_button(true, TILES, 3, strlen("Plot Region"), "Plot Region", s_2, NULL, NULL, NULL),
-				ascui_button(true, TILES, 3, strlen("Sea"), "Sea", s_1, env_tool_button, NULL, (void *)WATER),
-				ascui_button(true, TILES, 3, strlen("River"), "River", s_1, env_tool_button, NULL, (void *)RIVER),
-				ascui_button(true, TILES, 3, strlen("Beach"), "Beach", s_1, env_tool_button, NULL, (void *)BEACH),
-				ascui_button(true, TILES, 3, strlen("Floodplains"), "Floodplains", s_1, env_tool_button, NULL, (void *)FLOODPLAINS),
-				ascui_button(true, TILES, 3, strlen("Grasslands"), "Grasslands", s_1, env_tool_button, NULL, (void *)GRASSLAND),
-				ascui_button(true, TILES, 3, strlen("Hills"), "Hills", s_1, env_tool_button, NULL, (void *)HILLS),
-				ascui_button(true, TILES, 3, strlen("Highlands"), "Highlands", s_1, env_tool_button, NULL, (void *)HIGHLANDS),
-				ascui_button(true, TILES, 3, strlen("Mountains"), "Mountains", s_1, env_tool_button, NULL, (void *)MOUNTAINS)
-				)
-		),
-		ascui_container(true, TILES, 1, HORIZONTAL, 2,
-			ascui_container(true, TILES, 11, VERTICAL, 2,
-				ascui_box(true, PERCENTAGE, 50, VERTICAL, s_3, 1, 
-					cell_info_text = ascui_text(true, TILES, 1, 0, NULL, s_3)
-				),
-				ascui_box(true, TILES, 1, HORIZONTAL, s_3, 5, 
-					ascui_button(true, TILES, 3, strlen("Default"), "Default", s_3, map_vis_button, NULL, (void *)DEFAULT),
-					ascui_button(true, TILES, 3, strlen("Terrain"), "Terrain", s_3, map_vis_button, NULL, (void *)TERRAIN),
-					ascui_button(true, TILES, 3, strlen("Population"), "Population", s_3, map_vis_button, NULL, (void *)POPULATION),
-					ascui_button(true, TILES, 3, strlen("Heightmap"), "Heightmap", s_3, map_vis_button, NULL, (void *)HEIGHTMAP),
-					ascui_button(true, TILES, 3, strlen("Regions"), "Regions", s_3, map_vis_button, NULL, (void *)REGIONS)
-				)
-			),
-			subgrid_container = ascui_subgrid(true, TILES, 1, NULL)
-		)
-	);
-}
+	world_t *w;
+	uint16_t player_realm_id;
+	uint16_t c_realm_id;
+	uint8_t game_state;
+}game_t;
 
 int main(){
 	double tl_rendering_time;
@@ -188,9 +57,9 @@ int main(){
    	if (screensize_x == 0)
    	{
    		// Defaults
-   		screensize_x = 1500;
-   		screensize_y = 1000;
-   		tile_width = 15;
+   		screensize_x = 1250;
+   		screensize_y = 650;
+   		tile_width = 12;
    	}
    	else
    	{
@@ -240,10 +109,11 @@ int main(){
 	mapgen_place_rivers(map);
 	mapgen_place_rivers(map);
 	mapgen_place_rivers(map);
-	mapgen_clear_region_ids(map);
-	mapgen_place_regions(map, 250, 0, 250);
 	
 	mapgen_populate_map(map, 0.20f, 0.75f, 20.0f);
+
+	map_rebake_cells(map);
+	
 	// map_t *map = mapgen_gen_continent(400, 255, 80, 4380343);
 
 	Image hmap_img = ImageCopy(map->mapg_data.heightmap);
@@ -259,10 +129,21 @@ int main(){
 	pos16_t mouse_delta_start;
 	int subg_mouse_delta_x;
 	int subg_mouse_delta_y;
-	
-    while (!WindowShouldClose()){
-		pos16_t mouse_scr_pos = pos16(GetMouseX(), GetMouseY());
 
+	game_t game = {.w = w_create(0, map), 0,0,0};
+	game.player_realm_id = w_add_realm(game.w);
+	game.w->realms = &((realm_entry_t){.is_active = true});
+	game.w->realm_count = 1;
+	
+	ascui_get_button_data(end_turn_button)->domain = &game.c_realm_id; // Bind end turn button to c_realm_id
+	ascui_get_button_data(end_turn_button)->function_data = &game.player_realm_id; // give player ID to confirm that c_realm_id++; is allowed
+	
+    while (!WindowShouldClose())
+    {
+		pos16_t mouse_scr_pos = pos16(GetMouseX(), GetMouseY());
+		pos16_t mouse_subgrid_pos;
+		pos16_t mouse_map_pos;
+		
     	tick++;
 		frame_time = -GetTime();
 
@@ -281,7 +162,6 @@ int main(){
 			tl_resize_grid(main_grid, 0, 0, screensize_x, screensize_y, new_tile_size);
 			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
 		}
-		
 
 		if(IsWindowResized())
 		{
@@ -292,7 +172,7 @@ int main(){
 			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
 		}
 		
-		// Main grid
+		/// UI INTERACTIONS: MAIN UI	-----------------------------------------------------
 		pos16_t mouse_grid_pos = tl_screen_to_grid_coords(main_grid, mouse_scr_pos);
 		cursor.x = mouse_grid_pos.x;
 		cursor.y = mouse_grid_pos.y;
@@ -326,22 +206,80 @@ int main(){
 				cursor.selected_container = NULL;
 		}
 
-		pos16_t mouse_subgrid_pos;
-		pos16_t mouse_map_pos;
-		// Vector2 mouse_delta = GetMouseDelta();
-		if(cursor.hovered_container == subgrid_container)
+		/// TURN HANDLING	----------------------------------------------------------------
+
+		if(game.w->realm_count == 0)
+			goto skip_turn_handling;
+		    
+    	if (game.c_realm_id < game.w->realm_count) { game.c_realm_id = 0; }
+    		
+		if(!game.w->realms[game.c_realm_id].is_active)
+			continue;
+			
+		if(game.c_realm_id != game.player_realm_id)
+		{
+			if(make_ai_move(game.c_realm_id))
+				game.c_realm_id++;
+		}
+		else if(cursor.hovered_container == subgrid_container) // Player's turn and map-view hovered
+		{
+			// handle player moves
+			
+			// Painting
+			mouse_map_pos = map_grid_pos_to_map_pos(subgrid, map, mouse_subgrid_pos, map_view_camera);
+			if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+			{
+				if(selected_cell != NULL)
+				{
+					selected_cell = NULL;
+					cell_info_buf[0] = 0;
+				}
+				if(cursor.selected_container == river_container)
+					mapgen_plot_river(map, mouse_map_pos.x, mouse_map_pos.y);
+			}
+			else if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+			{
+				if(cursor.selected_container == cut_woods_container)
+					unwoodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
+				else if(selected_env == WOODLANDS)
+					woodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
+				else if(selected_env != NONE)
+					map_get_cell_p(map, pos16(mouse_map_pos.x, mouse_map_pos.y))->env = selected_env;
+			}
+			else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+			{
+				if(selected_env == NONE) // one click to disable painting, second to select cell
+				{
+					selected_cell = map_get_cell_p(map, pos16(mouse_map_pos.x, mouse_map_pos.y));
+					cell_to_str(map, selected_cell, mouse_map_pos.x, mouse_map_pos.y);
+				}
+				else 
+				{
+					selected_cell = NULL;
+					cell_info_buf[0] = 0;
+					selected_env = NONE;
+					cursor.selected_container = NULL;
+				}
+			}
+		}
+
+		skip_turn_handling:
+    	
+		/// UI INTERACTIONS: MAP-VIEW	----------------------------------------------------
+
+		if(cursor.hovered_container == subgrid_container) // Not neccessarily the players turn, but map-view is hovered
 		{
 			int key_cam_delta_x = 0;
 			int key_cam_delta_y = 0;
-			if (IsKeyDown(KEY_RIGHT)) key_cam_delta_x = 1;
-	        if (IsKeyDown(KEY_LEFT)) key_cam_delta_x = -1;
-	        if (IsKeyDown(KEY_UP)) key_cam_delta_y = -1;
-	        if (IsKeyDown(KEY_DOWN)) key_cam_delta_y = 1;
+			float delta_mult = max(1, 30/subgrid->tile_p_w); //ms
+			if (IsKeyDown(KEY_RIGHT)) key_cam_delta_x = 1.0f * delta_mult;
+	        if (IsKeyDown(KEY_LEFT)) key_cam_delta_x = -1.0f * delta_mult;
+	        if (IsKeyDown(KEY_UP)) key_cam_delta_y = -1.0f * delta_mult;
+	        if (IsKeyDown(KEY_DOWN)) key_cam_delta_y = 1.0f * delta_mult;
 
 			map_view_camera.x = clamp(0, (int)map_view_camera.x + key_cam_delta_x, map->width - 1);
 			map_view_camera.y = clamp(0, (int)map_view_camera.y + key_cam_delta_y, map->height - 1);
 			
-			// pos16_t subgrid_dims = tl_grid_get_dimensions(subgrid);
 			mouse_subgrid_pos = tl_screen_to_grid_coords(subgrid, mouse_scr_pos);
 
 			// map view camera navigation
@@ -369,49 +307,10 @@ int main(){
 			map_draw_map_onto_grid(subgrid, map, map_view_composite, 2, map_vis, selected_cell);
 			map_drawing_time += GetTime();
 
-			// Painting
-			mouse_map_pos = map_grid_pos_to_map_pos(subgrid, map, mouse_subgrid_pos, map_view_camera);
-			if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-			{
-				if(selected_cell != NULL)
-				{
-					selected_cell = NULL;
-					cell_info_buf[0] = 0;
-				}
-				if(cursor.selected_container == river_container)
-					mapgen_plot_river(map, mouse_map_pos.x, mouse_map_pos.y);
-				else if(cursor.selected_container == plot_region_container)
-					mapgen_plot_region(map, mouse_map_pos.x, mouse_map_pos.y, map->region_count + 1, 255);
-			}
-			else if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-			{
-				if(cursor.selected_container == cut_woods_container)
-					unwoodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
-				else if(selected_env == WOODLANDS)
-					woodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
-				else if(selected_env != NONE)
-					map_get_cell(map, mouse_map_pos.x, mouse_map_pos.y)->env = selected_env;
-			}
-			else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
-			{
-				if(selected_env == NONE) // one click to disable painting, second to select cell
-				{
-					selected_cell = map_get_cell(map, mouse_map_pos.x, mouse_map_pos.y);
-					cell_to_str(map, selected_cell, mouse_map_pos.x, mouse_map_pos.y);
-				}
-				else 
-				{
-					selected_cell = NULL;
-					cell_info_buf[0] = 0;
-					selected_env = NONE;
-					cursor.selected_container = NULL;
-				}
-			}
-
 
 			tl_plot_smbl_w_bg(subgrid, mouse_subgrid_pos.x, mouse_subgrid_pos.y, 'A', WHITE8B, BLACK8B, 1);
 		}
-		else
+		else // Not neccessarily player's turn, map-view not hovered 
 		{
 			map_drawing_time = -GetTime();
 			map_draw_map_onto_grid(subgrid, map, map_view_camera, 2, map_vis, selected_cell);
