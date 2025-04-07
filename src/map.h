@@ -99,7 +99,7 @@ typedef struct
 	religion_influence_t rlgn_influences[MAX_RLGNS_IN_CELL];
 }pop_data_t;
 
-
+#define NO_REALM_ID 65535
 typedef struct
 {
 	uint8_t pop_lvl;

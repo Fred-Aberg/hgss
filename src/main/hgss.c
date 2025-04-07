@@ -2,16 +2,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
-#include "c_codebase/src/raytiles.h"
-#include "c_codebase/src/common.h"
-#include "c_codebase/src/ascui.h"
-#include "map.h"
-#include "mapgen.h"
-#include "world.h"
+#include "../c_codebase/src/raytiles.h"
+#include "../c_codebase/src/common.h"
+#include "../c_codebase/src/ascui.h"
+#include "../map.h"
+#include "../mapgen.h"
+#include "../world.h"
 
-#include "main_ui.c"
+#include "hgss_ui.c"
 
 #define DEF_COLOR (Color){20, 40, 29, 255}
+
 
 void printbincharpad(char c)
 {
@@ -81,6 +82,11 @@ int main(){
 
 
     InitWindow(screensize_x, screensize_y, "HGSS");
+    InitAudioDevice();
+	Sound click_sound = LoadSound("Resources/Audio/click.wav");
+	Sound scroll_sound = LoadSound("Resources/Audio/scroll.wav");
+	Sound paint_sound = LoadSound("Resources/Audio/paint.wav");
+    
     Font unscii = LoadFontEx("Resources/Fonts/unscii-8-alt.ttf", 32, 0, 256);
     Font unscii_fantasy = LoadFontEx("Resources/Fonts/unscii-8-fantasy.ttf", 32, 0, 256);
     Font icons_font = LoadFontEx("Resources/Fonts/hgss.ttf", 64, NULL, 0);
@@ -131,9 +137,7 @@ int main(){
 	int subg_mouse_delta_y;
 
 	game_t game = {.w = w_create(0, map), 0,0,0};
-	game.player_realm_id = w_add_realm(game.w);
-	game.w->realms = &((realm_entry_t){.is_active = true});
-	game.w->realm_count = 1;
+	w_disperse_realms(game.w, 50);
 	
 	ascui_get_button_data(end_turn_button)->domain = &game.c_realm_id; // Bind end turn button to c_realm_id
 	ascui_get_button_data(end_turn_button)->function_data = &game.player_realm_id; // give player ID to confirm that c_realm_id++; is allowed
@@ -189,18 +193,31 @@ int main(){
 
 		if(cursor.hovered_container != NULL)
 		{
+			if(cursor.left_button_pressed && (cursor.hovered_container->container_type == BUTTON || cursor.hovered_container->selectability == SELECTABLE))
+			{
+				PlaySound(click_sound);
+			}
+			
+			if (!(cursor.scroll > 0 && cursor.hovered_container->scroll_offset == 0) && cursor.scroll != 0)
+			{
+				cursor.hovered_container->scroll_offset -= cursor.scroll;
+				if (!IsSoundPlaying(scroll_sound))
+					PlaySound(scroll_sound);
+			}
+				
 			if (cursor.hovered_container->container_type == BUTTON)
 			{
 				button_data_t *bt_data = ascui_get_button_data(cursor.hovered_container);
 				if(bt_data->side_effect_func)
 					bt_data->side_effect_func(bt_data->domain, bt_data->function_data, &cursor);
 			}
-			else if (!(cursor.scroll > 0 && cursor.hovered_container->scroll_offset == 0))
-				cursor.hovered_container->scroll_offset -= cursor.scroll;
 
 			// Select
-			if(cursor.hovered_container->container_type == BUTTON && cursor.left_button_pressed)
+			if(cursor.left_button_pressed && cursor.hovered_container->selectability == SELECTABLE)
+			{
 				cursor.selected_container = cursor.hovered_container;
+				
+			}
 			// Deselect
 			if(cursor.hovered_container == cursor.selected_container && cursor.right_button_pressed)
 				cursor.selected_container = NULL;
@@ -210,9 +227,12 @@ int main(){
 
 		if(game.w->realm_count == 0)
 			goto skip_turn_handling;
+			
 		    
-    	if (game.c_realm_id < game.w->realm_count) { game.c_realm_id = 0; }
+    	if (game.c_realm_id >= game.w->realm_count) { game.c_realm_id = 0; }
     		
+		printf("\n Realm turn: %u / %u", game.c_realm_id, game.w->realm_count);
+		
 		if(!game.w->realms[game.c_realm_id].is_active)
 			continue;
 			
@@ -235,10 +255,16 @@ int main(){
 					cell_info_buf[0] = 0;
 				}
 				if(cursor.selected_container == river_container)
+				{
 					mapgen_plot_river(map, mouse_map_pos.x, mouse_map_pos.y);
+					if (!IsSoundPlaying(paint_sound))
+						PlaySound(paint_sound);
+				}
 			}
 			else if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
 			{
+				if (!IsSoundPlaying(paint_sound))
+					PlaySound(paint_sound);
 				if(cursor.selected_container == cut_woods_container)
 					unwoodify_cell(map, mouse_map_pos.x, mouse_map_pos.y);
 				else if(selected_env == WOODLANDS)
@@ -250,6 +276,8 @@ int main(){
 			{
 				if(selected_env == NONE) // one click to disable painting, second to select cell
 				{
+					if (!IsSoundPlaying(click_sound))
+						PlaySound(click_sound);
 					selected_cell = map_get_cell_p(map, pos16(mouse_map_pos.x, mouse_map_pos.y));
 					cell_to_str(map, selected_cell, mouse_map_pos.x, mouse_map_pos.y);
 				}
@@ -297,6 +325,8 @@ int main(){
 				map_view_composite.x = clamp(0, (int)map_view_composite.x, map->width - 1);
 				map_view_composite.y = clamp(0, (int)map_view_composite.y, map->height - 1);
 				map_view_camera = map_view_composite;
+				subg_mouse_delta_x = 0;
+				subg_mouse_delta_y = 0;
 			}
 			else
 			{
@@ -312,6 +342,15 @@ int main(){
 		}
 		else // Not neccessarily player's turn, map-view not hovered 
 		{
+			if(subg_mouse_delta_x != 0 || subg_mouse_delta_y != 0)
+			{
+				map_view_composite.x = clamp(0, (int)map_view_composite.x, map->width - 1);
+				map_view_composite.y = clamp(0, (int)map_view_composite.y, map->height - 1);
+				map_view_camera = map_view_composite;
+				subg_mouse_delta_x = 0;
+				subg_mouse_delta_y = 0;
+			}
+		
 			map_drawing_time = -GetTime();
 			map_draw_map_onto_grid(subgrid, map, map_view_camera, 2, map_vis, selected_cell);
 			map_drawing_time += GetTime();
@@ -320,7 +359,7 @@ int main(){
 
 		/// HGSS SIMULATION ///
 
-		map_rebake_yields(map);
+		map_rebake_cells(map);
 
 		//-------------------
 		
@@ -382,8 +421,9 @@ int main(){
     UnloadFont(unscii);
     UnloadFont(unscii_fantasy);
     UnloadFont(icons_font);
+    CloseAudioDevice();
     CloseWindow();
-    // ascui_destroy(top_container);
+    ascui_destroy(top_container);
 	tl_deinit_grid(main_grid);
 	UnloadTexture(hmap_tex);
     return 0;

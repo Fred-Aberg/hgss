@@ -125,7 +125,7 @@ cell_t *map_get_cell_p(map_t *map, pos16_t p)
 
 cell_t *map_get_cell_i(map_t *map, uint32_t i)
 {
-	if(i < map->width * map->height)
+	if(i > map->width * map->height)
 	{
     fprintf(stderr, "map.c: get cell overflow i=%u [w,h]=[%u, %u]\n", 
     		i, map->width, map->height);
@@ -142,6 +142,11 @@ map_t *map_create_map(uint16_t width, uint16_t height)
 	map->cells = calloc(width*height, sizeof(cell_t));
 	map->pop_data = calloc(width*height, sizeof(pop_data_t));
 	map->b_cell_graphics = calloc(width*height, sizeof(cell_graphics_t));
+
+	// optimize with memset?
+	uint32_t n_c = width * height;
+	for (uint32_t i = 0; i < n_c; i++)
+		map->cells[i].realm_id = NO_REALM_ID;
 
 	return map;
 }
@@ -169,7 +174,7 @@ void map_rebake_cell_yields(map_t *map, uint32_t cell_id)
 
 void map_rebake_cell_gfx(map_t *map, uint32_t cell_id)
 {
-	map->b_cell_graphics[cell_id] = map_calc_cell_graphics(map->cells[cell_id], 0);
+	map->b_cell_graphics[cell_id] = map_calc_cell_graphics(map->cells[cell_id], 1);
 }
 
 void map_rebake_yields(map_t *map)
@@ -273,22 +278,29 @@ cell_graphics_t map_calc_cell_graphics(cell_t cell, int rand)
 	}
 }
 
+color8b_t realm_id_to_col(uint16_t id)
+{
+	id = 8 + id * 37;
+	uint8_t id_8bt = ((id>>8) & 255) ^ (id & 255);
+	return id_8bt;
+}
+
 #define col_hmap(c) tl_Color_to_color8b((Color){min((int)c + 32, 255), min((int)c + 32, 255), 0, 0})
 #define col_pop(c) tl_Color_to_color8b((Color){min((int)c + 32, 255), min((int)c * 2 + 32, 255), 0,0})
 #define col_char(c) tl_Color_to_color8b((Color){c, c, c, c})
 #define p_val(image, x, y) GetImageColor(image, x, y).r
 
-// bool border_cell(map_t *map, uint16_t region_id, uint16_t x, uint16_t y)
-// {
-	// if(region_id == 0)
-		// return false;
-	// pos16_t neighbours[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
-// 
-	// for (uint8_t i = 0; i < 4; i++)
-		// if(map_get_cell(map, neighbours[i].x, neighbours[i].y)->region_id != region_id)
-			// return true;
-	// return false;
-// }
+bool border_cell(map_t *map, uint16_t realm_id, uint16_t x, uint16_t y)
+{
+	if(realm_id == 0)
+		return false;
+	pos16_t neighbours[4] = {pos16(x, min((int)y + 1, map->height - 1)), pos16(x, max((int)y - 1, 0)), pos16(min((int)x + 1, map->width - 1), y), pos16(max((int)x - 1, 0), y)};
+
+	for (uint8_t i = 0; i < 4; i++)
+		if(map_get_cell_p(map, neighbours[i])->realm_id != realm_id)
+			return true;
+	return false;
+}
 
 void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint8_t g_x1, uint8_t g_y1, uint16_t map_x0, uint16_t map_y0, char map_font, cell_t *selected_cell,
 						color8b_t t_delta_col, color8b_t t_delta_col_invert)
@@ -317,6 +329,9 @@ void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
+				if(c_cell->realm_id != NO_REALM_ID)
+					cg.bg_col = realm_id_to_col(c_cell->realm_id);
+					
 				if(_x == 0)
 				{
 					c_interval_bg = cg.bg_col;
@@ -347,7 +362,7 @@ void draw_map_default(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 				for (int _x = 0; _x < map_display_width; _x++)
 				{
 					cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
-					if(cg.icon == 'A' || cg.icon == '1') // Sea or River
+					if(cg.icon == '0' || cg.icon == '2') // Sea or River
 						cg.icon += rand;
 					
 					
@@ -416,7 +431,7 @@ void draw_map_terrain(grid_t *grid, map_t *map, uint8_t g_x0, uint8_t g_y0, uint
 				for (int _x = 0; _x < map_display_width; _x++)
 				{
 					cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
-					if(cg.icon == 'A' || cg.icon == '1') // Sea or River
+					if(cg.icon == '0' || cg.icon == '2') // Sea or River
 						cg.icon += rand;
 					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
 				}
@@ -478,7 +493,6 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 
 	int t = GetTime();
 	bool rand = t & 1;
-	
 	cell_graphics_t cg;
 	tl_draw_rect_bg(grid,g_x0, g_y0, g_x1, g_y1, WATER_A);
 
@@ -491,7 +505,7 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 		uint16_t c_interval_x1 = 0;
 		for (int _x = 0; _x < map_display_width; _x++)
 		{
-
+			c_cell = map_get_cell_p(map, pos16(map_x0 + _x, map_y0 + _y));
 			
 			if(c_cell->env == WATER || c_cell->env == RIVER)
 			{
@@ -504,16 +518,13 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 				cg = cg('\0', col_pop(c_cell->pop_lvl), BLACK8B);
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
-				// else if(c_cell->region_id == selected_region_id)
-					// cg.bg_col = t_delta_col;
+
 			}
 			else if(vis == HEIGHTMAP)
 			{
 				cg = cg('\0', col_hmap(GetImageColor(map->mapg_data.heightmap, map_x0 + _x, map_y0 + _y).r), BLACK8B);
 				if(c_cell == selected_cell)
 					cg.bg_col = t_delta_col_invert;
-				// else if(c_cell->region_id == selected_region_id)
-					// cg.bg_col = t_delta_col;
 			}
 			if(_x == 0)
 			{
@@ -538,15 +549,15 @@ void map_draw_map_onto_grid(grid_t *grid, map_t *map, pos16_t cam_map_pos16, cha
 		}
 		// Draw last interval
 		tl_draw_rect_bg(grid, g_x0 + c_interval_x0, g_y0 + _y, g_x0 + c_interval_x1, g_y0 + _y, c_interval_bg);
-		if(vis == DEFAULT)
-			for (int _x = 0; _x < map_display_width; _x++)
-				if(grid->tile_p_w >= SYMBOL_CULL_P_W)
-				{
-					cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
-					if(cg.icon == 'A' || cg.icon == '1') // Sea or River
-						cg.icon += rand;
-					tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, cg.char_col, map_font);
-				}
+		for (int _x = 0; _x < map_display_width; _x++)
+			if(grid->tile_p_w >= SYMBOL_CULL_P_W)
+			{
+				cg = map->b_cell_graphics[map_p_to_i(map, pos16(map_x0 + _x, map_y0 + _y))];
+				if(cg.icon == '0' || cg.icon == '2') // Sea or River
+					cg.icon += rand;
+					
+				tl_plot_smbl(grid, g_x0 + _x, g_y0 + _y, cg.icon, BLACK8B, map_font);
+			}
 	}
 }
 

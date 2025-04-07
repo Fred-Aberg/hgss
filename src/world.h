@@ -123,4 +123,6 @@ uint16_t w_add_realm(world_t *w, ui32_list_t cell_id_list);
 
 void w_remove_realm(world_t *w, uint16_t rlm_i);
 
+void w_disperse_realms(world_t *w, uint16_t rlm_count);
+
 bool make_ai_move(uint16_t realm_id); // false if AI isn't finnished, true if AI is finnished
