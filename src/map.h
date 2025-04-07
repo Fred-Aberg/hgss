@@ -60,10 +60,9 @@ typedef enum
 typedef enum 
 {
 	DEFAULT,
+	TERRAIN,
 	POPULATION,
-	HEIGHTMAP,
-	REGIONS,
-	TERRAIN
+	HEIGHTMAP
 }map_visualisation_e;
 
 typedef struct

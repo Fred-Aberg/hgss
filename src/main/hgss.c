@@ -103,8 +103,6 @@ int main(){
 	// UI
 	main_ui();
 	ascui_get_subgrid_data(subgrid_container)->subgrid = subgrid;
-	ascui_get_text_data(cell_info_text)->text = &cell_info_buf[0];
-	ascui_get_text_data(cell_info_text)->text_len = CELL_INFO_BUF_LEN;
 
 	// map_t *map = map_create_map(100,100);
 	// map->mapg_data.seed = 0;
@@ -126,7 +124,7 @@ int main(){
 	Texture2D hmap_tex = LoadTextureFromImage(hmap_img);
 	
 	pos16_t map_view_camera = pos16(map->width/2,map->height/2);
-	pos16_t map_view_composite;
+	pos16_t map_view_composite = map_view_camera;
 	
 	cursor_t cursor; 
 
@@ -144,6 +142,7 @@ int main(){
 	
     while (!WindowShouldClose())
     {
+    	update_main_ui();
 		pos16_t mouse_scr_pos = pos16(GetMouseX(), GetMouseY());
 		pos16_t mouse_subgrid_pos;
 		pos16_t mouse_map_pos;
@@ -154,74 +153,7 @@ int main(){
         BeginDrawing();
         ClearBackground(BLACK);
 
-		if(IsKeyDown(45))
-		{
-			uint16_t new_tile_size = main_grid->tile_p_w + 1;
-			tl_resize_grid(main_grid, 0, 0, screensize_x, screensize_y, new_tile_size);
-			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
-		}
-		else if(IsKeyDown(47))
-		{
-			uint16_t new_tile_size = main_grid->tile_p_w - 1;
-			tl_resize_grid(main_grid, 0, 0, screensize_x, screensize_y, new_tile_size);
-			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
-		}
-
-		if(IsWindowResized())
-		{
-			screensize_x = GetScreenWidth();
-			screensize_y = GetScreenHeight();
-			
-			tl_resize_grid(main_grid, 0, 0, screensize_x, screensize_y, main_grid->tile_p_w);
-			tl_center_grid_on_screen(main_grid, screensize_x, screensize_y);
-		}
-		
-		/// UI INTERACTIONS: MAIN UI	-----------------------------------------------------
-		pos16_t mouse_grid_pos = tl_screen_to_grid_coords(main_grid, mouse_scr_pos);
-		cursor.x = mouse_grid_pos.x;
-		cursor.y = mouse_grid_pos.y;
-		cursor.right_button_pressed = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
-		cursor.left_button_pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-		cursor.middle_button_pressed = IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE);
-		cursor.scroll = GetMouseWheelMove();
-
-		ascui_drawing_time = -GetTime();
-		ascui_draw_ui(main_grid, top_container, &cursor);
-		ascui_drawing_time += GetTime();
-
-		// Container hovering and selecting
-
-		if(cursor.hovered_container != NULL)
-		{
-			if(cursor.left_button_pressed && (cursor.hovered_container->container_type == BUTTON || cursor.hovered_container->selectability == SELECTABLE))
-			{
-				PlaySound(click_sound);
-			}
-			
-			if (!(cursor.scroll > 0 && cursor.hovered_container->scroll_offset == 0) && cursor.scroll != 0)
-			{
-				cursor.hovered_container->scroll_offset -= cursor.scroll;
-				if (!IsSoundPlaying(scroll_sound))
-					PlaySound(scroll_sound);
-			}
-				
-			if (cursor.hovered_container->container_type == BUTTON)
-			{
-				button_data_t *bt_data = ascui_get_button_data(cursor.hovered_container);
-				if(bt_data->side_effect_func)
-					bt_data->side_effect_func(bt_data->domain, bt_data->function_data, &cursor);
-			}
-
-			// Select
-			if(cursor.left_button_pressed && cursor.hovered_container->selectability == SELECTABLE)
-			{
-				cursor.selected_container = cursor.hovered_container;
-				
-			}
-			// Deselect
-			if(cursor.hovered_container == cursor.selected_container && cursor.right_button_pressed)
-				cursor.selected_container = NULL;
-		}
+		ascui_run_ui(main_grid, top_container, &ascui_drawing_time, &click_sound, &scroll_sound, 45, 47, &cursor);
 
 		/// TURN HANDLING	----------------------------------------------------------------
 
@@ -231,7 +163,7 @@ int main(){
 		    
     	if (game.c_realm_id >= game.w->realm_count) { game.c_realm_id = 0; }
     		
-		printf("\n Realm turn: %u / %u", game.c_realm_id, game.w->realm_count);
+		// printf("\n Realm turn: %u / %u", game.c_realm_id, game.w->realm_count);
 		
 		if(!game.w->realms[game.c_realm_id].is_active)
 			continue;
@@ -354,13 +286,12 @@ int main(){
 			map_drawing_time = -GetTime();
 			map_draw_map_onto_grid(subgrid, map, map_view_camera, 2, map_vis, selected_cell);
 			map_drawing_time += GetTime();
-			tl_plot_smbl_w_bg(main_grid, mouse_grid_pos.x, mouse_grid_pos.y, 'A', WHITE8B, BLACK8B, 0);
+			tl_plot_smbl_w_bg(main_grid, cursor.x, cursor.y, 'A', WHITE8B, BLACK8B, 0);
 		}
 
 		/// HGSS SIMULATION ///
 
 		map_rebake_cells(map);
-
 		//-------------------
 		
 		tl_rendering_time = -GetTime();
@@ -404,7 +335,7 @@ int main(){
 		}
 		else
 		{
-			sprintf(buf, "(%u, %u)", mouse_grid_pos.x, mouse_grid_pos.y);
+			sprintf(buf, "(%u, %u)", cursor.x, cursor.y);
 			DrawText(buf, 0, 0, 24, c(0, 255, 0));
 
 			sprintf(buf, "(%u, %u)", mouse_subgrid_pos.x, mouse_subgrid_pos.y);

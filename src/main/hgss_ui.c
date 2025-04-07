@@ -1,19 +1,12 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "../c_codebase/src/raytiles.h"
 #include "../c_codebase/src/common.h"
 #include "../c_codebase/src/ascui.h"
 #include "../map.h"
 
 Sound click_sound;
-
-void dropdown_button(void *domain, void *function_data, cursor_t *cursor)
-{
-	if (!cursor->left_button_pressed)
-		return;
-	container_t *container = *(container_t **)domain;
-	container->open = !container->open;
-}
 
 environment_e selected_env;
 
@@ -101,57 +94,72 @@ container_t *plot_region_container;
 container_t *end_turn_button;
 
 #define CELL_INFO_BUF_LEN 256
-container_t *cell_info_text;
 cell_t *selected_cell = NULL;
 char cell_info_buf[CELL_INFO_BUF_LEN];
+char *buf_ptr = &cell_info_buf[0];
+container_t *cell_display;
 
 void cell_to_str(map_t *map, cell_t *c, uint16_t x, uint16_t y)
 {
 	char env_buf[32];
 	map_env_to_str(env_buf, c->env);
-	sprintf(cell_info_buf, "[%u, %u]: %s\n  Pop: %u\n  \b002\a070{\b:%u\a \b002\a640|\b:%u\a\n  Realm ID: %u",
+	sprintf(cell_info_buf, "\n\n[%u, %u]: %s\n  Pop: %u\n  \b002\a070{\b:%u\a \b002\a640|\b:%u\a\n  Realm ID: %u",
 	x, y, env_buf, c->pop_lvl, c->baked_food_yield, c->baked_production_yield, c->realm_id);
 }
 
+void update_main_ui()
+{
+	ascui_get_display_data(cell_display)->baked_available_width = 0;
+	ascui_get_display_data(cell_display)->text_len = strlen(buf_ptr);
+}
 
 void main_ui()
 {
+
 	container_style_t s_0 = style(0, col8bt(0,0,0), col8bt(5,0,2), col8bt(7,7,3), '=', '|', '+');
 	container_style_t s_1 = style(1, col8bt(2,0,1), col8bt(2,0,1), col8bt(7,7,3), '-', '|', 'O');
 	container_style_t s_2 = style(1, col8bt(2,0,1), col8bt(2,0,1), col8bt(7,0,3), '-', '|', 'O');
-	container_style_t s_3 = style(1, col8bt(2,1,1), col8bt(2,1,1), col8bt(7,1,3), '=', '|', '=');
+	container_style_t s_3 = style(1, col8bt(2,1,1), col8bt(2,1,1), col8bt(7,1,3), '-', '|', '+');
+	container_style_t s_v_div = style(1, col8bt(2,1,1), col8bt(2,1,1), col8bt(7,1,3), '|', '|', '|');
+	container_style_t s_h_div = style(1, col8bt(2,1,1), col8bt(2,1,1), col8bt(7,1,3), '=', '=', '=');
 	top_container = ascui_container(true, PERCENTAGE, 100, VERTICAL, 2,
 		 ascui_box(true, STATIC, TILES, 20, HORIZONTAL, s_0, 2, 
-			ascui_button(true, HOVERABLE, TILES, 3, strlen("Env. Tool Box >"), "Env. Tool Box >", s_1, dropdown_button, &tool_box_container, NULL),
+			ascui_dropdown_button(TILES, 3, "V Env. Tool Box ", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1),
 			tool_box_container = ascui_container(true, TILES, 1, HORIZONTAL, 11, 
-				river_container = ascui_button(true, SELECTABLE, TILES, 3, strlen("River gen"), "River gen", s_2, NULL, NULL, NULL),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Plant Woods"), "Plant Woods", s_2, env_tool_button, NULL, (void *)WOODLANDS),
-				cut_woods_container = ascui_button(true, SELECTABLE, TILES, 3, strlen("Cut Woods"), "Cut Woods", s_2, NULL, NULL, NULL),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Sea"), "Sea", s_1, env_tool_button, NULL, (void *)WATER),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("River"), "River", s_1, env_tool_button, NULL, (void *)RIVER),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Beach"), "Beach", s_1, env_tool_button, NULL, (void *)BEACH),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Floodplains"), "Floodplains", s_1, env_tool_button, NULL, (void *)FLOODPLAINS),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Grasslands"), "Grasslands", s_1, env_tool_button, NULL, (void *)GRASSLAND),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Hills"), "Hills", s_1, env_tool_button, NULL, (void *)HILLS),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Highlands"), "Highlands", s_1, env_tool_button, NULL, (void *)HIGHLANDS),
-				ascui_button(true, SELECTABLE, TILES, 3, strlen("Mountains"), "Mountains", s_1, env_tool_button, NULL, (void *)MOUNTAINS)
-				)
+				river_container = ascui_button(true, SELECTABLE, TILES, 3, "River gen", ALIGN_MIDDLE, ALIGN_MIDDLE, s_2, NULL, NULL, NULL),
+				ascui_button(true, SELECTABLE, TILES, 3, "Plant Woods", ALIGN_MIDDLE, ALIGN_MIDDLE, s_2, env_tool_button, NULL, (void *)WOODLANDS),
+				cut_woods_container = ascui_button(true, SELECTABLE, TILES, 3, "Cut Woods", ALIGN_MIDDLE, ALIGN_MIDDLE, s_2, NULL, NULL, NULL),
+				ascui_button(true, SELECTABLE, TILES, 3, "Sea", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)WATER),
+				ascui_button(true, SELECTABLE, TILES, 3, "River", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)RIVER),
+				ascui_button(true, SELECTABLE, TILES, 3, "Beach", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)BEACH),
+				ascui_button(true, SELECTABLE, TILES, 3, "Floodplains", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)FLOODPLAINS),
+				ascui_button(true, SELECTABLE, TILES, 3, "Grasslands", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)GRASSLAND),
+				ascui_button(true, SELECTABLE, TILES, 3, "Hills", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)HILLS),
+				ascui_button(true, SELECTABLE, TILES, 3, "Highlands", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)HIGHLANDS),
+				ascui_button(true, SELECTABLE, TILES, 3, "Mountains", ALIGN_MIDDLE, ALIGN_MIDDLE, s_1, env_tool_button, NULL, (void *)MOUNTAINS)
+			)
 		),
-		ascui_container(true, TILES, 1, HORIZONTAL, 2,
-			ascui_container(true, TILES, 11, VERTICAL, 3,
-				ascui_box(true, STATIC, TILES, 12, VERTICAL, s_3, 1, 
-					end_turn_button = ascui_button(true, HOVERABLE, TILES, 3, strlen("End Turn"), "End Turn", s_3, end_turn_button_func, NULL, NULL)
+		ascui_container(true, TILES, 1, HORIZONTAL, 5,
+			ascui_divider(s_h_div),
+			ascui_divider(s_h_div),
+			ascui_container(true, TILES, 11, VERTICAL, 2,
+				ascui_container(true, TILES, 38, VERTICAL, 4,
+					end_turn_button = ascui_button(true, HOVERABLE, TILES, 10, "End Turn", ALIGN_MIDDLE, ALIGN_MIDDLE, s_3, end_turn_button_func, NULL, NULL),
+					ascui_divider(s_v_div),
+					cell_display = ascui_display(true, STATIC, TILES, 26, &buf_ptr, ALIGN_LEFT, ALIGN_TOP, s_3),
+					ascui_divider(s_v_div)
 				),
-				ascui_box(true, STATIC, PERCENTAGE, 33, VERTICAL, s_3, 1, 
-					cell_info_text = ascui_text(true, STATIC, TILES, 1, 0, NULL, s_3)
-				),
-				ascui_box(true, HOVERABLE, TILES, 1, HORIZONTAL, s_3, 4, 
-					ascui_button(true, HOVERABLE, TILES, 3, strlen("Default"), "Default", s_3, map_vis_button, NULL, (void *)DEFAULT),
-					ascui_button(true, HOVERABLE, TILES, 3, strlen("Terrain"), "Terrain", s_3, map_vis_button, NULL, (void *)TERRAIN),
-					ascui_button(true, HOVERABLE, TILES, 3, strlen("Population"), "Population", s_3, map_vis_button, NULL, (void *)POPULATION),
-					ascui_button(true, HOVERABLE, TILES, 3, strlen("Heightmap"), "Heightmap", s_3, map_vis_button, NULL, (void *)HEIGHTMAP)
+				ascui_box(true, HOVERABLE, TILES, 1, VERTICAL, s_3, 7, 
+					ascui_button(true, HOVERABLE, PERCENTAGE, 25, "Default", ALIGN_MIDDLE, ALIGN_MIDDLE, s_3, map_vis_button, NULL, (void *)DEFAULT),
+					ascui_divider(s_v_div),
+					ascui_button(true, HOVERABLE, PERCENTAGE, 25, "Terrain", ALIGN_MIDDLE, ALIGN_MIDDLE, s_3, map_vis_button, NULL, (void *)TERRAIN),
+					ascui_divider(s_v_div),
+					ascui_button(true, HOVERABLE, PERCENTAGE, 25, "Population", ALIGN_MIDDLE, ALIGN_MIDDLE, s_3, map_vis_button, NULL, (void *)POPULATION),
+					ascui_divider(s_v_div),
+					ascui_button(true, HOVERABLE, PERCENTAGE, 25, "Heightmap", ALIGN_MIDDLE, ALIGN_MIDDLE, s_3, map_vis_button, NULL, (void *)HEIGHTMAP)
 				)
 			),
+			ascui_divider(s_h_div),
 			subgrid_container = ascui_subgrid(true, TILES, 1, NULL)
 		)
 	);
